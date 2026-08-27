@@ -9,10 +9,10 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("image");
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col">
+      {/* Header — full width */}
       <header className="border-b border-[var(--border)]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+        <div className="flex items-center justify-between px-6 py-4 lg:px-10">
           <div className="flex items-baseline gap-3">
             <h1 className="text-lg font-semibold tracking-tight">
               GPU Upscaler
@@ -32,35 +32,35 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      {/* Main — full width, fills remaining height */}
+      <main className="flex-1 flex flex-col px-4 py-6 lg:px-8 lg:py-8">
         {/* Intro */}
-        <div className="mb-10 max-w-2xl">
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight">
+        <div className="mb-6 max-w-3xl">
+          <h2 className="text-2xl font-semibold leading-tight tracking-tight lg:text-3xl">
             Escalá imágenes y video con tu GPU.
             <br />
             <span className="text-[var(--text-muted)]">
               Gratis, sin servidor, sin upload.
             </span>
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
             Una red neural corre en los Tensor Cores de tu placa de video via
             WebGPU. El video nunca sale de tu navegador. Necesitás Chrome 113+,
             Edge 113+, o cualquier navegador con soporte WebGPU.
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="border border-[var(--border)] bg-[var(--surface)]">
+        {/* Tabs — full width */}
+        <div className="flex-1 flex flex-col border border-[var(--border)] bg-[var(--surface)]">
           <TabSwitcher active={tab} onChange={setTab} />
-          <div className="p-6">
+          <div className="flex-1 p-4 lg:p-6">
             {tab === "image" && <ImageUpscaler />}
             {tab === "video" && <VideoUpscaler />}
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 border-t border-[var(--border)] pt-6 text-xs text-[var(--text-muted)]">
+        <footer className="mt-6 border-t border-[var(--border)] pt-4 text-xs text-[var(--text-muted)]">
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
             <p>
               Todo el procesamiento ocurre en tu GPU local. Cero costos de

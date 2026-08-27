@@ -93,7 +93,7 @@ export function ImageUpscaler() {
           }}
           onDragLeave={() => setDragActive(false)}
           onDrop={handleDrop}
-          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-20 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
+          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-32 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
             dragActive ? "drag-active" : ""
           }`}
         >
@@ -140,7 +140,7 @@ export function ImageUpscaler() {
       {/* Processing state */}
       {sourceUrl && status === "processing" && (
         <div className="space-y-2">
-          <div className="flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] py-20">
+          <div className="flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] py-32">
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
               <span className="text-sm text-[var(--text-muted)]">Procesando en tu GPU…</span>
@@ -159,7 +159,7 @@ export function ImageUpscaler() {
           <img
             src={sourceUrl}
             alt="Original"
-            className="mx-auto max-h-[500px] object-contain"
+            className="mx-auto max-h-[70vh] w-auto object-contain"
           />
         </div>
       )}

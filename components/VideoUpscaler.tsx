@@ -75,7 +75,7 @@ export function VideoUpscaler() {
           }}
           onDragLeave={() => setDragActive(false)}
           onDrop={handleDrop}
-          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-20 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
+          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-32 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
             dragActive ? "drag-active" : ""
           }`}
         >
@@ -129,7 +129,7 @@ export function VideoUpscaler() {
               <video
                 src={sourceUrl}
                 controls
-                className="max-h-[300px] w-full object-contain"
+                className="max-h-[60vh] w-full object-contain"
               />
             </div>
           </div>
@@ -174,7 +174,7 @@ export function VideoUpscaler() {
                 <video
                   src={resultUrl}
                   controls
-                  className="max-h-[300px] w-full object-contain"
+                  className="max-h-[60vh] w-full object-contain"
                 />
               </div>
             </div>
