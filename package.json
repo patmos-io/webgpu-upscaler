@@ -9,19 +9,22 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@webgpu/types": "^0.1.60",
+    "@websr/websr": "^0.0.15",
+    "mediabunny": "^1.55.3",
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@websr/websr": "^0.0.15",
-    "@webgpu/types": "^0.1.60"
+    "web-demuxer": "^4.0.0",
+    "webcodecs-utils": "^0.2.6"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.0",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
-    "postcss": "^8.4.0"
+    "typescript": "^5.7.0"
   }
 }

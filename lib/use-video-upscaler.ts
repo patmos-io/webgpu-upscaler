@@ -18,8 +18,8 @@ interface UseVideoUpscalerResult {
   reset: () => void;
 }
 
-// --- webcodecs-utils: import dinámico desde ESM CDN ---
-// El paquete no tiene tipos oficiales.
+// --- webcodecs-utils: tipos mínimos para los subpaths internos ---
+// El paquete no exporta tipos para subpaths internos.
 interface SimpleDemuxer {
   load(): Promise<void>;
   getVideoDecoderConfig(): Promise<VideoDecoderConfig>;
@@ -33,18 +33,7 @@ interface SimpleMuxer {
 
 interface VideoDecodeStream extends TransformStream {}
 interface VideoEncodeStream extends TransformStream {}
-
 interface VideoProcessStream extends TransformStream {}
-
-interface WebCodecsUtilsModule {
-  SimpleDemuxer: new (file: File) => SimpleDemuxer;
-  SimpleMuxer: new (config: { video: string }) => SimpleMuxer;
-  VideoDecodeStream: new (config: VideoDecoderConfig) => VideoDecodeStream;
-  VideoEncodeStream: new (config: VideoEncoderConfig) => VideoEncodeStream;
-  VideoProcessStream: new (
-    fn: (frame: VideoFrame) => Promise<VideoFrame>,
-  ) => VideoProcessStream;
-}
 
 export function useVideoUpscaler(): UseVideoUpscalerResult {
   const [status, setStatus] = useState<ProcessingStatus>("idle");
@@ -120,12 +109,18 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
         const { websr } = await loadWebSR();
         const canvas = hiddenCanvasRef.current!;
 
-        // Importar webcodecs-utils desde ESM CDN
-        // Usar variable para que TS no intente resolver el módulo URL
-        const utilsUrl = "https://esm.sh/webcodecs-utils@0.0.16";
-        const utils = (await import(
-          /* webpackIgnore: true */ utilsUrl
-        )) as WebCodecsUtilsModule;
+        // Importar webcodecs-utils — solo los módulos de video, saltando
+        // el index que arrastra audio decoders (mpg123-decoder) que rompen SSR.
+        // @ts-expect-error — subpaths internos sin tipos exportados
+        const { SimpleDemuxer } = await import("webcodecs-utils/dist/demux/simple-demuxer.js");
+        // @ts-expect-error
+        const { SimpleMuxer } = await import("webcodecs-utils/dist/mux/simple-muxer.js");
+        // @ts-expect-error
+        const { VideoDecodeStream } = await import("webcodecs-utils/dist/streams/video-decode-stream.js");
+        // @ts-expect-error
+        const { VideoEncodeStream } = await import("webcodecs-utils/dist/streams/video-encode-stream.js");
+        // @ts-expect-error
+        const { VideoProcessStream } = await import("webcodecs-utils/dist/streams/video-process-stream.js");
 
         // Demuxer: leer el video de entrada
         setProgress({
@@ -135,7 +130,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
           percent: 0,
         });
 
-        const demuxer = new utils.SimpleDemuxer(file);
+        const demuxer = new SimpleDemuxer(file);
         await demuxer.load();
         const decoderConfig = await demuxer.getVideoDecoderConfig();
 
@@ -159,16 +154,16 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
           framerate: 30,
         };
 
-        const muxer = new utils.SimpleMuxer({ video: "avc" });
+        const muxer = new SimpleMuxer({ video: "avc" });
 
         let framesProcessed = 0;
 
         // Build pipeline: demux → decode → upscale (WebSR) → encode → mux
         await demuxer
           .videoStream()
-          .pipeThrough(new utils.VideoDecodeStream(decoderConfig))
+          .pipeThrough(new VideoDecodeStream(decoderConfig))
           .pipeThrough(
-            new utils.VideoProcessStream(async (frame: VideoFrame) => {
+            new VideoProcessStream(async (frame: VideoFrame) => {
               if (cancelledRef.current) {
                 frame.close();
                 throw new Error("cancelled");
@@ -198,7 +193,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
               return upscaledFrame;
             }),
           )
-          .pipeThrough(new utils.VideoEncodeStream(encoderConfig))
+          .pipeThrough(new VideoEncodeStream(encoderConfig))
           .pipeTo(muxer.videoSink());
 
         const blob = await muxer.finalize();
