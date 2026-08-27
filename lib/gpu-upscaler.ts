@@ -340,6 +340,11 @@ async function gpuUpscaleImageImpl(
   const dstW = Math.round(srcW * scale);
   const dstH = Math.round(srcH * scale);
 
+  // Capture any GPU validation errors
+  device.pushErrorScope("validation");
+  device.pushErrorScope("out-of-memory");
+  device.pushErrorScope("internal");
+
   // Source texture
   const srcTex = device.createTexture({
     size: [srcW, srcH],
@@ -348,7 +353,7 @@ async function gpuUpscaleImageImpl(
   });
   device.queue.copyExternalImageToTexture(
     { source, flipY: false },
-    { texture: srcTex },
+    { texture: srcTex, premultipliedAlpha: false },
     [srcW, srcH],
   );
 
@@ -450,6 +455,7 @@ async function gpuUpscaleImageImpl(
   if (uniformBuffer) uniformBuffer.destroy();
 
   // --- Verify result is not all-black (GPU validation errors silently produce black) ---
+  // Check RGB only — alpha is now always 1.0 (forced in shaders)
   const verifyCanvas = document.createElement("canvas");
   verifyCanvas.width = Math.min(dstW, 64);
   verifyCanvas.height = Math.min(dstH, 64);
@@ -459,7 +465,7 @@ async function gpuUpscaleImageImpl(
     const sample = vctx.getImageData(0, 0, verifyCanvas.width, verifyCanvas.height).data;
     let hasContent = false;
     for (let i = 0; i < sample.length; i += 4) {
-      if (sample[i] > 0 || sample[i + 1] > 0 || sample[i + 2] > 0 || sample[i + 3] > 0) {
+      if (sample[i] > 0 || sample[i + 1] > 0 || sample[i + 2] > 0) {
         hasContent = true;
         break;
       }
@@ -467,6 +473,15 @@ async function gpuUpscaleImageImpl(
     if (!hasContent) {
       console.warn("[GPU] Shader produced all-black texture, falling back to canvas 2D");
       throw new Error("GPU shader produced empty output");
+    }
+  }
+
+  // Pop error scopes — if any errors occurred, they surface here
+  for (let i = 0; i < 3; i++) {
+    const gpuError = await device.popErrorScope();
+    if (gpuError) {
+      console.error("[GPU] Error scope:", gpuError.message);
+      throw new Error(`GPU error: ${gpuError.message}`);
     }
   }
 
