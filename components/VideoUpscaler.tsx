@@ -3,14 +3,14 @@
 import { useCallback, useState } from "react";
 import { useVideoUpscaler } from "@/lib/use-video-upscaler";
 import { formatBytes } from "@/lib/websr";
-import type { ScaleFactor } from "@/types";
+import type { ScaleFactor, UpscaleAlgorithm } from "@/types";
 import { VideoCompareSlider } from "@/components/VideoCompareSlider";
 import { ScaleControl } from "@/components/ScaleControl";
 
 const phaseLabels: Record<string, string> = {
   demuxing: "Leyendo video",
   decoding: "Decodificando frames",
-  upscaling: "Upscaling con AI",
+  upscaling: "Upscaling frames",
   encoding: "Codificando resultado",
   muxing: "Generando MP4",
   done: "Listo",
@@ -18,6 +18,8 @@ const phaseLabels: Record<string, string> = {
 
 export function VideoUpscaler() {
   const [scale, setScale] = useState<ScaleFactor>(2);
+  const [algorithm, setAlgorithm] = useState<UpscaleAlgorithm>("lanczos");
+  const [sharpen, setSharpen] = useState(0.4);
   const [dragActive, setDragActive] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -47,8 +49,8 @@ export function VideoUpscaler() {
 
   const handleProcess = useCallback(() => {
     if (!sourceFile) return;
-    upscale(sourceFile, scale);
-  }, [sourceFile, scale, upscale]);
+    upscale(sourceFile, scale, algorithm, sharpen);
+  }, [sourceFile, scale, algorithm, sharpen, upscale]);
 
   const handleDownload = useCallback(() => {
     if (!resultUrl) return;
@@ -234,6 +236,10 @@ export function VideoUpscaler() {
             scale={scale}
             onScaleChange={setScale}
             sourceDims={null}
+            algorithm={algorithm}
+            onAlgorithmChange={setAlgorithm}
+            sharpen={sharpen}
+            onSharpenChange={setSharpen}
           />
 
           {error && (

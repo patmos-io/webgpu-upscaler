@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useImageUpscaler } from "@/lib/use-image-upscaler";
 import { formatMs, isWebGPUSupported } from "@/lib/websr";
-import type { ContentMode, ScaleFactor } from "@/types";
+import type { ContentMode, ScaleFactor, UpscaleAlgorithm } from "@/types";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { ScaleControl } from "@/components/ScaleControl";
 
@@ -11,6 +11,8 @@ export function ImageUpscaler() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState<ScaleFactor>(2);
   const [mode, setMode] = useState<ContentMode>("real");
+  const [algorithm, setAlgorithm] = useState<UpscaleAlgorithm>("lanczos");
+  const [sharpen, setSharpen] = useState(0.4);
   const [dragActive, setDragActive] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceDims, setSourceDims] = useState<{ w: number; h: number } | null>(null);
@@ -51,8 +53,8 @@ export function ImageUpscaler() {
     img.src = sourceUrl;
     await img.decode();
     const bitmap = await createImageBitmap(img);
-    await upscale(bitmap, scale, mode);
-  }, [sourceUrl, scale, mode, upscale]);
+    await upscale(bitmap, scale, mode, algorithm, sharpen);
+  }, [sourceUrl, scale, mode, algorithm, sharpen, upscale]);
 
   const handleDownload = useCallback(() => {
     if (!result) return;
@@ -185,23 +187,25 @@ export function ImageUpscaler() {
         <div className="shrink-0 flex flex-col gap-3 border-t border-[var(--border)] pt-4">
           {/* Row 1: mode + actions */}
           <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Left: mode */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
-              {(["real", "anime"] as ContentMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`px-3 py-1.5 text-sm transition-colors ${
-                    mode === m
-                      ? "bg-[var(--accent)] text-[var(--bg)]"
-                      : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                  }`}
-                >
-                  {m === "real" ? "Foto" : "Anime"}
-                </button>
-              ))}
-            </div>
+            {/* Left: mode (only for AI) */}
+            {algorithm === "ai" && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
+                {(["real", "anime"] as ContentMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`px-3 py-1.5 text-sm transition-colors ${
+                      mode === m
+                        ? "bg-[var(--accent)] text-[var(--bg)]"
+                        : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {m === "real" ? "Foto" : "Anime"}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Right: actions */}
             <div className="flex gap-3">
@@ -235,6 +239,10 @@ export function ImageUpscaler() {
             scale={scale}
             onScaleChange={setScale}
             sourceDims={sourceDims}
+            algorithm={algorithm}
+            onAlgorithmChange={setAlgorithm}
+            sharpen={sharpen}
+            onSharpenChange={setSharpen}
           />
 
           {/* Row 3: metadata */}

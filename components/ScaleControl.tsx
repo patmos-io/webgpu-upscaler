@@ -2,18 +2,23 @@
 
 import { useMemo } from "react";
 import { getScaleInfo, getQualityInfo } from "@/lib/websr";
-import type { ScaleFactor, QualityInfo } from "@/types";
+import { ALGORITHMS } from "@/types";
+import type { ScaleFactor, UpscaleAlgorithm, AlgorithmInfo } from "@/types";
 
 interface ScaleControlProps {
   scale: ScaleFactor;
   onScaleChange: (scale: ScaleFactor) => void;
   /** Dimensiones originales para mostrar advertencias de GPU memory */
   sourceDims?: { w: number; h: number } | null;
-  /** Presets rápidos. Default: [2, 4, 8] */
+  /** Algoritmo seleccionado */
+  algorithm: UpscaleAlgorithm;
+  onAlgorithmChange: (a: UpscaleAlgorithm) => void;
+  /** Cantidad de sharpening 0-2 */
+  sharpen: number;
+  onSharpenChange: (s: number) => void;
+  /** Presets rápidos */
   presets?: number[];
-  /** Escala mínima del slider. Default: 1.5 */
   min?: number;
-  /** Escala máxima del slider. Default: 8 */
   max?: number;
 }
 
@@ -25,6 +30,10 @@ export function ScaleControl({
   scale,
   onScaleChange,
   sourceDims,
+  algorithm,
+  onAlgorithmChange,
+  sharpen,
+  onSharpenChange,
   presets = DEFAULT_PRESETS,
   min = DEFAULT_MIN,
   max = DEFAULT_MAX,
@@ -32,20 +41,49 @@ export function ScaleControl({
   const info = useMemo(() => getScaleInfo(scale), [scale]);
   const quality = getQualityInfo(info.tier);
 
-  // Estimación de memoria GPU: 4 bytes por pixel × area × un factor de overhead
-  // WebSR mantiene buffers de entrada y salida simultáneamente
   const gpuWarning = useMemo(() => {
     if (!sourceDims) return null;
     const outPixels = sourceDims.w * sourceDims.h * scale * scale;
-    // ~16 bytes por pixel (RGBA float en GPU + buffers intermedios)
     const estMB = (outPixels * 16) / (1024 * 1024);
     if (estMB > 512) return "Puede saturar la GPU. Riesgo de crash en GPU integrada.";
     if (estMB > 256) return "Alto consumo de GPU memory. Monitoreá el rendimiento.";
     return null;
   }, [sourceDims, scale]);
 
+  // Sharpening solo aplica a algoritmos no-AI
+  const showSharpen = algorithm !== "ai";
+  // Quality tier solo aplica a AI
+  const showQualityTier = algorithm === "ai";
+
+  const algoList: AlgorithmInfo[] = Object.values(ALGORITHMS);
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
+      {/* Algorithm selector */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-[var(--text-muted)] shrink-0">Algoritmo:</span>
+        {algoList.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => onAlgorithmChange(a.id)}
+            title={a.description}
+            className={`px-3 py-1.5 text-sm transition-colors ${
+              algorithm === a.id
+                ? "bg-[var(--accent)] text-[var(--bg)]"
+                : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Algorithm description */}
+      <p className="text-xs text-[var(--text-muted)]">
+        {ALGORITHMS[algorithm].description}
+      </p>
+
+      {/* Scale row */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-[var(--text-muted)] shrink-0">Escala:</span>
 
@@ -94,31 +132,65 @@ export function ScaleControl({
         </div>
       </div>
 
-      {/* Quality badge + info */}
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <span
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 font-mono"
-          style={{ color: quality.color }}
-        >
-          <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: quality.color }}
+      {/* Sharpening control (only for non-AI) */}
+      {showSharpen && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[var(--text-muted)] shrink-0">Nitidez:</span>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.1}
+            value={sharpen}
+            onChange={(e) => onSharpenChange(parseFloat(e.target.value))}
+            className="flex-1 max-w-[180px]"
+            aria-label="Nitidez"
           />
-          {quality.label}
-        </span>
-        <span className="text-[var(--text-muted)]">
-          {info.passes} {info.passes === 1 ? "pasada" : "pasadas"} de 2x
-          {info.needsResize ? ` + resize a ${scale}x` : ""}
-        </span>
-        {sourceDims && (
-          <span className="font-mono text-[var(--text-muted)]">
-            → {Math.round(sourceDims.w * scale)}×{Math.round(sourceDims.h * scale)}
+          <span className="font-mono text-xs text-[var(--text-muted)] w-8 text-center">
+            {sharpen.toFixed(1)}
           </span>
-        )}
-      </div>
+          {sharpen > 0 && (
+            <button
+              onClick={() => onSharpenChange(0)}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+            >
+              reset
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* Description de calidad */}
-      <p className="text-xs text-[var(--text-muted)]">{quality.description}</p>
+      {/* Quality badge + info (AI only) */}
+      {showQualityTier && (
+        <>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 font-mono"
+              style={{ color: quality.color }}
+            >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: quality.color }}
+              />
+              {quality.label}
+            </span>
+            <span className="text-[var(--text-muted)]">
+              {info.passes} {info.passes === 1 ? "pasada" : "pasadas"} de 2x
+              {info.needsResize ? ` + resize a ${scale}x` : ""}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">{quality.description}</p>
+        </>
+      )}
+
+      {/* Output dims */}
+      {sourceDims && (
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className="font-mono text-[var(--text-muted)]">
+            {sourceDims.w}×{sourceDims.h} → {Math.round(sourceDims.w * scale)}×{Math.round(sourceDims.h * scale)}
+          </span>
+        </div>
+      )}
 
       {/* GPU memory warning */}
       {gpuWarning && (
