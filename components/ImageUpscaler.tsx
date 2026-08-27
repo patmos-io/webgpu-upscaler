@@ -73,6 +73,9 @@ export function ImageUpscaler() {
 
   return (
     <div className="space-y-6 fade-in">
+      {/* Canvas oculto — WebSR renderiza aquí, luego lo pasamos a blob/URL */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* WebGPU warning */}
       {!webgpu && (
         <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
