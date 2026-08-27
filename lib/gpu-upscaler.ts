@@ -408,8 +408,11 @@ export async function gpuUpscaleImage(
     sharpPass.end();
 
     finalTex = sharpenTex;
-    // Don't destroy upscaleTex yet — encoder hasn't executed
   }
+
+  // --- Submit render commands BEFORE readback ---
+  // Without this, the render passes never execute and the texture is empty (black).
+  device.queue.submit([encoder.finish()]);
 
   // --- Read back ---
   const bitmap = await readTextureToBitmap(device, finalTex, dstW, dstH);
