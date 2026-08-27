@@ -8,7 +8,7 @@ import type {
   WebSRInstance,
   NetworkOption,
 } from "@/types";
-import { getNetwork } from "@/lib/websr";
+import { getNetwork, getScaleInfo } from "@/lib/websr";
 
 interface UseImageUpscalerOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -38,9 +38,10 @@ export function useImageUpscaler({
   const [processTime, setProcessTime] = useState<number | null>(null);
 
   const moduleRef = useRef<WebSRModule | null>(null);
-  const websrRef = useRef<WebSRInstance | null>(null);
+  // Cache de instancias WebSR por red para reutilizar entre pasadas
+  const websrCacheRef = useRef<Map<string, WebSRInstance>>(new Map());
+  // Canvas oculto para pasadas intermedias
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const hiddenWebsrRef = useRef<WebSRInstance | null>(null);
   // Cache de pesos para no re-fetchear la misma red
   const weightsCacheRef = useRef<Map<string, unknown>>(new Map());
 
@@ -56,6 +57,11 @@ export function useImageUpscaler({
     return mod;
   }, []);
 
+  /**
+   * Crea (o recupera del cache) una instancia de WebSR para una red dada.
+   * El cache permite reutilizar instancias entre pasadas de cascada y entre
+   * escaladas sucesivas con la misma red.
+   */
   const ensureWebSR = useCallback(
     async (
       network: NetworkOption,
@@ -76,22 +82,78 @@ export function useImageUpscaler({
         weightsCacheRef.current.set(network.weightUrl, weights);
       }
 
-      const websr = new mod.default({
-        network_name: network.name,
-        weights,
-        gpu,
-        canvas,
-      });
+      const key = `${network.name}:${network.weightUrl}`;
+      let websr = websrCacheRef.current.get(key);
+      if (websr) {
+        // Reasignar canvas para esta pasada
+        websr = new mod.default({
+          network_name: network.name,
+          weights,
+          gpu,
+          canvas,
+        });
+        websrCacheRef.current.set(key, websr);
+      } else {
+        websr = new mod.default({
+          network_name: network.name,
+          weights,
+          gpu,
+          canvas,
+        });
+        websrCacheRef.current.set(key, websr);
+      }
 
       return websr;
     },
     [loadModule],
   );
 
+  /**
+   * Hace una sola pasada de 2x usando WebSR.
+   * Renderiza source en canvas, redimensiona el canvas a w*2 × h*2.
+   */
+  const renderPass2x = useCallback(
+    async (
+      source: ImageBitmap | HTMLImageElement,
+      network: NetworkOption,
+      canvas: HTMLCanvasElement,
+    ): Promise<void> => {
+      const srcW = source.width;
+      const srcH = source.height;
+      canvas.width = srcW * 2;
+      canvas.height = srcH * 2;
+      const websr = await ensureWebSR(network, canvas);
+      await websr.render(source);
+    },
+    [ensureWebSR],
+  );
+
+  /**
+   * Resize bilineal desde un canvas de origen a un canvas destino.
+   * Se usa cuando la escala final no es potencia de 2 (ej: 3x, 6x).
+   */
+  const bilinearResize = useCallback(
+    (
+      srcCanvas: HTMLCanvasElement,
+      dstCanvas: HTMLCanvasElement,
+      dstW: number,
+      dstH: number,
+    ): void => {
+      dstCanvas.width = dstW;
+      dstCanvas.height = dstH;
+      const ctx = dstCanvas.getContext("2d");
+      if (!ctx) throw new Error("No se pudo obtener contexto 2d para resize");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(srcCanvas, 0, 0, dstW, dstH);
+    },
+    [],
+  );
+
   const upscale = useCallback(
     async (
       source: HTMLImageElement | ImageBitmap,
-      _scale: ScaleFactor,
+      scale: ScaleFactor,
       mode: ContentMode,
     ) => {
       setStatus("processing");
@@ -100,7 +162,9 @@ export function useImageUpscaler({
       setProcessTime(null);
 
       try {
-        // Usar la red large (calidad) para imágenes, según el modo
+        const info = getScaleInfo(scale);
+        if (info.passes === 0) throw new Error("La escala debe ser mayor a 1x");
+
         const network = getNetwork(mode, false);
         const canvas = canvasRef.current;
         if (!canvas) throw new Error("Canvas no disponible");
@@ -109,34 +173,54 @@ export function useImageUpscaler({
         const srcHeight = source.height;
         const startTime = performance.now();
 
-        if (_scale === 2) {
-          websrRef.current?.dispose?.();
-          const websr = await ensureWebSR(network, canvas);
-          websrRef.current = websr;
-          canvas.width = srcWidth * 2;
-          canvas.height = srcHeight * 2;
-          await websr.render(source);
-        } else {
-          if (!hiddenCanvasRef.current) {
-            hiddenCanvasRef.current = document.createElement("canvas");
+        // Canvas oculto para pasadas intermedias
+        if (!hiddenCanvasRef.current) {
+          hiddenCanvasRef.current = document.createElement("canvas");
+        }
+        const hidden = hiddenCanvasRef.current;
+
+        let currentSource: ImageBitmap | HTMLImageElement = source;
+        let currentCanvas: HTMLCanvasElement = hidden;
+        let currentW = srcWidth;
+        let currentH = srcHeight;
+
+        // Pasadas en cascada: cada una duplica las dimensiones
+        for (let i = 0; i < info.passes; i++) {
+          // Alternar entre hidden y canvas para que la última pasada
+          // caiga en el canvas principal (visible)
+          const isLastPass = i === info.passes - 1;
+          const targetCanvas = isLastPass ? canvas : hidden;
+          const altCanvas = isLastPass ? hidden : canvas;
+
+          // Disponer instancia anterior si apuntaba al canvas que vamos a usar
+          // (No es necesario porque ensureWebSR crea nueva instancia cada vez)
+
+          await renderPass2x(currentSource, network, targetCanvas);
+
+          currentW *= 2;
+          currentH *= 2;
+
+          // Preparar la fuente para la siguiente pasada
+          if (isLastPass) {
+            // Última pasada: el resultado está en canvas (visible)
+            break;
           }
-          const hidden = hiddenCanvasRef.current;
+          // Convertir el canvas intermedio a ImageBitmap para la siguiente pasada
+          currentSource = await createImageBitmap(targetCanvas);
+          currentCanvas = targetCanvas;
+        }
 
-          hiddenWebsrRef.current?.dispose?.();
-          const websrHidden = await ensureWebSR(network, hidden);
-          hiddenWebsrRef.current = websrHidden;
-          hidden.width = srcWidth * 2;
-          hidden.height = srcHeight * 2;
-          await websrHidden.render(source);
-
-          const intermediate = await createImageBitmap(hidden);
-
-          websrRef.current?.dispose?.();
-          const websr = await ensureWebSR(network, canvas);
-          websrRef.current = websr;
-          canvas.width = srcWidth * 4;
-          canvas.height = srcHeight * 4;
-          await websr.render(intermediate);
+        // Resize final si la escala no es potencia de 2
+        if (info.needsResize) {
+          const finalW = Math.round(srcWidth * scale);
+          const finalH = Math.round(srcHeight * scale);
+          bilinearResize(canvas, hidden, finalW, finalH);
+          // Copiar de hidden al canvas final
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+          canvas.width = finalW;
+          canvas.height = finalH;
+          ctx.drawImage(hidden, 0, 0);
         }
 
         const elapsed = performance.now() - startTime;
@@ -167,7 +251,7 @@ export function useImageUpscaler({
         setStatus("error");
       }
     },
-    [canvasRef, ensureWebSR],
+    [canvasRef, ensureWebSR, renderPass2x, bilinearResize],
   );
 
   const reset = useCallback(() => {
@@ -181,8 +265,8 @@ export function useImageUpscaler({
   useEffect(() => {
     return () => {
       if (result) URL.revokeObjectURL(result.url);
-      websrRef.current?.dispose?.();
-      hiddenWebsrRef.current?.dispose?.();
+      websrCacheRef.current.forEach((w) => w.dispose?.());
+      websrCacheRef.current.clear();
     };
   }, [result]);
 

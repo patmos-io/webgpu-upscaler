@@ -5,8 +5,9 @@ import type {
   VideoProgress,
   WebSRModule,
   WebSRInstance,
+  NetworkOption,
 } from "@/types";
-import { getNetwork } from "@/lib/websr";
+import { getNetwork, getScaleInfo } from "@/lib/websr";
 
 interface UseVideoUpscalerResult {
   status: ProcessingStatus;
@@ -90,6 +91,78 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
     return { mod, websr };
   }, []);
 
+  /**
+   * Hace N pasadas de 2x en cascada sobre un VideoFrame.
+   * Usa canvas intermedios para cada pasada.
+   * Retorna un VideoFrame con la resolución final escalada.
+   */
+  const upscaleFrame = useCallback(
+    async (
+      frame: VideoFrame,
+      websr: WebSRInstance,
+      scale: ScaleFactor,
+      finalCanvas: HTMLCanvasElement,
+    ): Promise<VideoFrame> => {
+      const info = getScaleInfo(scale);
+      if (info.passes === 0) {
+        // sin escala, devolver tal cual
+        return frame;
+      }
+
+      const srcW = frame.codedWidth;
+      const srcH = frame.codedHeight;
+      const ts = frame.timestamp;
+      const dur = frame.duration;
+
+      let currentSource: VideoFrame | ImageBitmap = frame;
+      let currentW = srcW;
+      let currentH = srcH;
+
+      // Canvas intermedio para pasadas no finales
+      const tempCanvas = document.createElement("canvas");
+
+      for (let i = 0; i < info.passes; i++) {
+        const isLastPass = i === info.passes - 1 && !info.needsResize;
+        const target = isLastPass ? finalCanvas : tempCanvas;
+        target.width = currentW * 2;
+        target.height = currentH * 2;
+
+        await websr.render(currentSource);
+        if (currentSource !== frame) {
+          (currentSource as ImageBitmap).close?.();
+        }
+
+        currentW *= 2;
+        currentH *= 2;
+
+        if (!isLastPass) {
+          currentSource = await createImageBitmap(target);
+        }
+      }
+
+      frame.close();
+
+      // Resize final si la escala no es potencia de 2
+      if (info.needsResize) {
+        const finalW = Math.round(srcW * scale);
+        const finalH = Math.round(srcH * scale);
+        finalCanvas.width = finalW;
+        finalCanvas.height = finalH;
+        const ctx = finalCanvas.getContext("2d");
+        if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(tempCanvas, 0, 0, finalW, finalH);
+      }
+
+      return new VideoFrame(finalCanvas, {
+        timestamp: ts,
+        duration: dur ?? undefined,
+      });
+    },
+    [],
+  );
+
   const upscale = useCallback(
     async (file: File, scale: ScaleFactor) => {
       if (!checkWebGPU()) {
@@ -139,11 +212,13 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
         const srcHeight = decoderConfig.codedHeight ?? 360;
 
         // Output resolution
-        const outWidth = srcWidth * scale;
-        const outHeight = srcHeight * scale;
+        const outWidth = Math.round(srcWidth * scale);
+        const outHeight = Math.round(srcHeight * scale);
 
-        canvas.width = outWidth;
-        canvas.height = outHeight;
+        // Canvas para el resultado final de cada frame
+        const finalCanvas = hiddenCanvasRef.current!;
+        finalCanvas.width = outWidth;
+        finalCanvas.height = outHeight;
 
         // Encoder config — AVC (H.264) que es lo más compatible
         const encoderConfig: VideoEncoderConfig = {
@@ -158,7 +233,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
 
         let framesProcessed = 0;
 
-        // Build pipeline: demux → decode → upscale (WebSR) → encode → mux
+        // Build pipeline: demux → decode → upscale (WebSR cascade) → encode → mux
         await demuxer
           .videoStream()
           .pipeThrough(new VideoDecodeStream(decoderConfig))
@@ -169,18 +244,8 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
                 throw new Error("cancelled");
               }
 
-              // AI upscale con WebSR
-              // Capturar metadata antes de close()
-              const ts = frame.timestamp;
-              const dur = frame.duration;
-
-              await websr.render(frame);
-              frame.close();
-
-              const upscaledFrame = new VideoFrame(canvas, {
-                timestamp: ts,
-                duration: dur ?? undefined,
-              });
+              // AI upscale con cascada N×2x
+              const upscaledFrame = await upscaleFrame(frame, websr, scale, finalCanvas);
 
               framesProcessed++;
               setProgress({

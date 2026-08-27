@@ -1,4 +1,22 @@
-export type ScaleFactor = 2 | 4;
+export type ScaleFactor = number;
+
+export type QualityTier = "optimal" | "good" | "acceptable" | "extreme";
+
+export interface ScaleInfo {
+  /** Número de pasadas de 2x en cascada */
+  passes: number;
+  /** Escala final de la AI (potencia de 2) */
+  aiScale: number;
+  /** Si requiere resize final (escala no es potencia de 2) */
+  needsResize: boolean;
+  tier: QualityTier;
+}
+
+export interface QualityInfo {
+  label: string;
+  color: string;
+  description: string;
+}
 
 export type ProcessingStatus =
   | "idle"

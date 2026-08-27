@@ -5,6 +5,7 @@ import { useImageUpscaler } from "@/lib/use-image-upscaler";
 import { formatMs, isWebGPUSupported } from "@/lib/websr";
 import type { ContentMode, ScaleFactor } from "@/types";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
+import { ScaleControl } from "@/components/ScaleControl";
 
 export function ImageUpscaler() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,9 +182,10 @@ export function ImageUpscaler() {
 
       {/* === CONTROLS BAR === */}
       {sourceUrl && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
-          {/* Left: mode + scale + info */}
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="shrink-0 flex flex-col gap-3 border-t border-[var(--border)] pt-4">
+          {/* Row 1: mode + actions */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* Left: mode */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
               {(["real", "anime"] as ContentMode[]).map((m) => (
@@ -201,27 +203,46 @@ export function ImageUpscaler() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-[var(--text-muted)]">Escala:</span>
-              {[2, 4].map((s) => (
+            {/* Right: actions */}
+            <div className="flex gap-3">
+              {status !== "processing" && (
                 <button
-                  key={s}
-                  onClick={() => setScale(s as ScaleFactor)}
-                  className={`px-3 py-1.5 text-sm font-mono transition-colors ${
-                    scale === s
-                      ? "bg-[var(--accent)] text-[var(--bg)]"
-                      : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                  }`}
+                  onClick={handleProcess}
+                  className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
                 >
-                  {s}x
+                  Escalar {scale}x
                 </button>
-              ))}
+              )}
+              {result && (
+                <button
+                  onClick={handleDownload}
+                  className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  Descargar PNG
+                </button>
+              )}
+              <button
+                onClick={handleReset}
+                className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+              >
+                Limpiar
+              </button>
             </div>
+          </div>
 
+          {/* Row 2: Scale control with quality indicators */}
+          <ScaleControl
+            scale={scale}
+            onScaleChange={setScale}
+            sourceDims={sourceDims}
+          />
+
+          {/* Row 3: metadata */}
+          <div className="flex flex-wrap items-center gap-4">
             {sourceDims && (
               <span className="font-mono text-xs text-[var(--text-muted)]">
                 {sourceDims.w}×{sourceDims.h}
-                {result ? ` → ${result.width}×${result.height}` : ` → ${sourceDims.w * scale}×${sourceDims.h * scale}`}
+                {result ? ` → ${result.width}×${result.height}` : ` → ${Math.round(sourceDims.w * scale)}×${Math.round(sourceDims.h * scale)}`}
               </span>
             )}
             {processTime !== null && status === "done" && (
@@ -229,32 +250,6 @@ export function ImageUpscaler() {
                 {formatMs(processTime)}
               </span>
             )}
-          </div>
-
-          {/* Right: actions */}
-          <div className="flex gap-3">
-            {status !== "processing" && (
-              <button
-                onClick={handleProcess}
-                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
-              >
-                Escalar {scale}x
-              </button>
-            )}
-            {result && (
-              <button
-                onClick={handleDownload}
-                className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                Descargar PNG
-              </button>
-            )}
-            <button
-              onClick={handleReset}
-              className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-            >
-              Limpiar
-            </button>
           </div>
 
           {error && (

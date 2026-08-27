@@ -5,6 +5,7 @@ import { useVideoUpscaler } from "@/lib/use-video-upscaler";
 import { formatBytes } from "@/lib/websr";
 import type { ScaleFactor } from "@/types";
 import { VideoCompareSlider } from "@/components/VideoCompareSlider";
+import { ScaleControl } from "@/components/ScaleControl";
 
 const phaseLabels: Record<string, string> = {
   demuxing: "Leyendo video",
@@ -184,65 +185,56 @@ export function VideoUpscaler() {
 
       {/* === CONTROLS BAR === */}
       {sourceUrl && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
-          {/* Left: info */}
-          <div className="flex flex-wrap items-center gap-4">
-            {sourceFile && (
-              <span className="font-mono text-xs text-[var(--text-muted)]">
-                {formatBytes(sourceFile.size)}
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-[var(--text-muted)]">Escala:</span>
-              {[2, 4].map((s) => (
+        <div className="shrink-0 flex flex-col gap-3 border-t border-[var(--border)] pt-4">
+          {/* Row 1: info + actions */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {sourceFile && (
+                <span className="font-mono text-xs text-[var(--text-muted)]">
+                  {formatBytes(sourceFile.size)}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-3">
+              {status !== "processing" && (
                 <button
-                  key={s}
-                  onClick={() => setScale(s as ScaleFactor)}
-                  className={`px-3 py-1.5 text-sm font-mono transition-colors ${
-                    scale === s
-                      ? "bg-[var(--accent)] text-[var(--bg)]"
-                      : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                  }`}
+                  onClick={handleProcess}
+                  className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
                 >
-                  {s}x
+                  Escalar {scale}x
                 </button>
-              ))}
+              )}
+              {status === "processing" && (
+                <button
+                  onClick={handleReset}
+                  className="px-6 py-2.5 border border-[var(--danger)] text-[var(--danger)] text-sm font-medium transition-colors hover:bg-[rgba(232,93,93,0.1)]"
+                >
+                  Cancelar
+                </button>
+              )}
+              {resultUrl && (
+                <button
+                  onClick={handleDownload}
+                  className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  Descargar MP4
+                </button>
+              )}
+              <button
+                onClick={handleReset}
+                className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+              >
+                Limpiar
+              </button>
             </div>
           </div>
 
-          {/* Right: actions */}
-          <div className="flex gap-3">
-            {status !== "processing" && (
-              <button
-                onClick={handleProcess}
-                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
-              >
-                Escalar {scale}x
-              </button>
-            )}
-            {status === "processing" && (
-              <button
-                onClick={handleReset}
-                className="px-6 py-2.5 border border-[var(--danger)] text-[var(--danger)] text-sm font-medium transition-colors hover:bg-[rgba(232,93,93,0.1)]"
-              >
-                Cancelar
-              </button>
-            )}
-            {resultUrl && (
-              <button
-                onClick={handleDownload}
-                className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                Descargar MP4
-              </button>
-            )}
-            <button
-              onClick={handleReset}
-              className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-            >
-              Limpiar
-            </button>
-          </div>
+          {/* Row 2: Scale control with quality indicators */}
+          <ScaleControl
+            scale={scale}
+            onScaleChange={setScale}
+            sourceDims={null}
+          />
 
           {error && (
             <div className="w-full border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
