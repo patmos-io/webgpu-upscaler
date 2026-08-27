@@ -3,20 +3,19 @@
 import { useCallback, useRef, useState } from "react";
 import { useImageUpscaler } from "@/lib/use-image-upscaler";
 import { formatBytes, formatMs, isWebGPUSupported } from "@/lib/websr";
-import type { ScaleFactor } from "@/types";
+import type { ContentMode, ScaleFactor } from "@/types";
+import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 
 export function ImageUpscaler() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState<ScaleFactor>(2);
+  const [mode, setMode] = useState<ContentMode>("real");
   const [dragActive, setDragActive] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceSize, setSourceSize] = useState<number>(0);
-  const [sourceDims, setSourceDims] = useState<{
-    w: number;
-    h: number;
-  } | null>(null);
+  const [sourceDims, setSourceDims] = useState<{ w: number; h: number } | null>(null);
 
-  const { status, error, result, processTime, upscale, reset, webgpuSupported } =
+  const { status, error, result, processTime, upscale, reset } =
     useImageUpscaler({ canvasRef });
 
   const webgpu = typeof window !== "undefined" ? isWebGPUSupported() : false;
@@ -29,7 +28,6 @@ export function ImageUpscaler() {
       setSourceUrl(url);
       setSourceSize(file.size);
 
-      // Medir dimensiones
       const img = new Image();
       img.src = url;
       await img.decode();
@@ -54,8 +52,8 @@ export function ImageUpscaler() {
     img.src = sourceUrl;
     await img.decode();
     const bitmap = await createImageBitmap(img);
-    await upscale(bitmap, scale);
-  }, [sourceUrl, scale, upscale]);
+    await upscale(bitmap, scale, mode);
+  }, [sourceUrl, scale, mode, upscale]);
 
   const handleDownload = useCallback(() => {
     if (!result) return;
@@ -105,15 +103,7 @@ export function ImageUpscaler() {
               if (file) handleFile(file);
             }}
           />
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-[var(--text-muted)]"
-          >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
           </svg>
           <div>
@@ -127,135 +117,135 @@ export function ImageUpscaler() {
         </label>
       )}
 
-      {/* Source + Result */}
-      {sourceUrl && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Original */}
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  Original
-                </span>
-                {sourceDims && (
-                  <span className="font-mono text-xs text-[var(--text-muted)]">
-                    {sourceDims.w}×{sourceDims.h} · {formatBytes(sourceSize)}
-                  </span>
-                )}
-              </div>
-              <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={sourceUrl}
-                  alt="Original"
-                  className="max-h-[300px] w-full object-contain"
-                />
-              </div>
-            </div>
+      {/* Result with before/after slider */}
+      {sourceUrl && result && (
+        <div className="space-y-4 fade-in">
+          <BeforeAfterSlider
+            beforeUrl={sourceUrl}
+            afterUrl={result.url}
+            beforeLabel="Original"
+            afterLabel="Escalado"
+            beforeDims={sourceDims ?? undefined}
+            afterDims={{ w: result.width, h: result.height }}
+          />
+          <p className="text-center text-xs text-[var(--text-muted)]">
+            Arrastrá el slider para comparar antes y después
+          </p>
+        </div>
+      )}
 
-            {/* Upscaled */}
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  Escalado
-                </span>
-                {result && (
-                  <span className="font-mono text-xs text-[var(--accent)]">
-                    {result.width}×{result.height} ·{" "}
-                    {formatBytes(result.blob.size)}
-                  </span>
-                )}
-              </div>
-              <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
-                <canvas
-                  ref={canvasRef}
-                  className="max-h-[300px] w-full object-contain canvas-wrapper"
-                />
-                {status === "processing" && (
-                  <div className="flex items-center justify-center py-12 text-sm text-[var(--text-muted)]">
-                    Procesando en tu GPU…
-                  </div>
-                )}
-                {status === "idle" && (
-                  <div className="flex items-center justify-center py-12 text-sm text-[var(--text-muted)]">
-                    Listo para escalar
-                  </div>
-                )}
-              </div>
+      {/* Processing state */}
+      {sourceUrl && status === "processing" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] py-20">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
+              <span className="text-sm text-[var(--text-muted)]">Procesando en tu GPU…</span>
             </div>
           </div>
+          <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
+            <div className="h-full w-1/3 animate-pulse bg-[var(--accent)]" />
+          </div>
+        </div>
+      )}
 
-          {/* Controls */}
-          <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
-            <div className="flex items-center gap-6">
-              {/* Scale selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--text-muted)]">Escala:</span>
-                {[2, 4].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setScale(s as ScaleFactor)}
-                    className={`px-3 py-1.5 text-sm font-mono transition-colors ${
-                      scale === s
-                        ? "bg-[var(--accent)] text-[var(--bg)]"
-                        : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    {s}x
-                  </button>
-                ))}
-              </div>
+      {/* Idle state with source loaded */}
+      {sourceUrl && status === "idle" && (
+        <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={sourceUrl}
+            alt="Original"
+            className="mx-auto max-h-[500px] object-contain"
+          />
+        </div>
+      )}
 
-              {/* Process time */}
-              {processTime !== null && status === "done" && (
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  Procesado en {formatMs(processTime)}
-                </span>
-              )}
+      {/* Controls */}
+      {sourceUrl && (
+        <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
+          {/* Mode + Scale */}
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
+              {(["real", "anime"] as ContentMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1.5 text-sm transition-colors ${
+                    mode === m
+                      ? "bg-[var(--accent)] text-[var(--bg)]"
+                      : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  {m === "real" ? "Foto" : "Anime"}
+                </button>
+              ))}
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              {status !== "processing" && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--text-muted)]">Escala:</span>
+              {[2, 4].map((s) => (
                 <button
-                  onClick={handleProcess}
-                  disabled={!sourceUrl}
-                  className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)] disabled:opacity-40"
+                  key={s}
+                  onClick={() => setScale(s as ScaleFactor)}
+                  className={`px-3 py-1.5 text-sm font-mono transition-colors ${
+                    scale === s
+                      ? "bg-[var(--accent)] text-[var(--bg)]"
+                      : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
                 >
-                  Escalar {scale}x
+                  {s}x
                 </button>
-              )}
-              {status === "processing" && (
-                <button
-                  disabled
-                  className="px-6 py-2.5 bg-[var(--surface-2)] text-[var(--text-muted)] text-sm font-medium"
-                >
-                  Procesando…
-                </button>
-              )}
-              {result && (
-                <button
-                  onClick={handleDownload}
-                  className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                >
-                  Descargar PNG
-                </button>
-              )}
-              <button
-                onClick={handleReset}
-                className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-              >
-                Limpiar
-              </button>
+              ))}
             </div>
 
-            {/* Error */}
-            {error && (
-              <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
-                {error}
-              </div>
+            {processTime !== null && status === "done" && (
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                Procesado en {formatMs(processTime)}
+              </span>
+            )}
+            {sourceDims && (
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                {sourceDims.w}×{sourceDims.h} →{" "}
+                {result ? `${result.width}×${result.height}` : `${sourceDims.w * scale}×${sourceDims.h * scale}`}
+              </span>
             )}
           </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            {status !== "processing" && (
+              <button
+                onClick={handleProcess}
+                disabled={!sourceUrl}
+                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)] disabled:opacity-40"
+              >
+                Escalar {scale}x
+              </button>
+            )}
+            {result && (
+              <button
+                onClick={handleDownload}
+                className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Descargar PNG
+              </button>
+            )}
+            <button
+              onClick={handleReset}
+              className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+            >
+              Limpiar
+            </button>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
+              {error}
+            </div>
+          )}
         </div>
       )}
 
@@ -265,22 +255,22 @@ export function ImageUpscaler() {
           <div>
             <span className="font-mono text-xs text-[var(--accent)]">01</span>
             <p className="mt-2 text-sm text-[var(--text)]">
-              Subís una imagen o video. Nada se sube a un servidor — todo queda
-              en tu navegador.
+              Subís una imagen. Nada se sube a un servidor — todo queda en tu
+              navegador.
             </p>
           </div>
           <div>
             <span className="font-mono text-xs text-[var(--accent)]">02</span>
             <p className="mt-2 text-sm text-[var(--text)]">
-              Una red neural corre en tu GPU local via WebGPU. Los Tensor Cores
-              de tu placa hacen el trabajo pesado.
+              Una red neural corre en tu GPU local via WebGPU. Elegí modo Foto
+              para imágenes reales o Anime para ilustraciones.
             </p>
           </div>
           <div>
             <span className="font-mono text-xs text-[var(--accent)]">03</span>
             <p className="mt-2 text-sm text-[var(--text)]">
               Descargás el resultado. Sin marca de agua, sin límites, sin
-              registro. El costo de cómputo es cero para nosotros.
+              registro. Costo de cómputo cero.
             </p>
           </div>
         </div>

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  ContentMode,
   ImageResult,
   ProcessingStatus,
   ScaleFactor,
   WebSRModule,
   WebSRInstance,
+  NetworkOption,
 } from "@/types";
-import { NETWORKS } from "@/lib/websr";
+import { getNetwork } from "@/lib/websr";
 
 interface UseImageUpscalerOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -18,7 +20,11 @@ interface UseImageUpscalerResult {
   webgpuSupported: boolean;
   result: ImageResult | null;
   processTime: number | null;
-  upscale: (source: HTMLImageElement | ImageBitmap, scale: ScaleFactor) => Promise<void>;
+  upscale: (
+    source: HTMLImageElement | ImageBitmap,
+    scale: ScaleFactor,
+    mode: ContentMode,
+  ) => Promise<void>;
   reset: () => void;
 }
 
@@ -33,11 +39,11 @@ export function useImageUpscaler({
 
   const moduleRef = useRef<WebSRModule | null>(null);
   const websrRef = useRef<WebSRInstance | null>(null);
-  // Canvas oculto para la pasada intermedia del 4x
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hiddenWebsrRef = useRef<WebSRInstance | null>(null);
+  // Cache de pesos para no re-fetchear la misma red
+  const weightsCacheRef = useRef<Map<string, unknown>>(new Map());
 
-  // Detectar WebGPU al montar
   useEffect(() => {
     const supported = typeof navigator !== "undefined" && "gpu" in navigator;
     setWebgpuSupported(supported);
@@ -45,7 +51,6 @@ export function useImageUpscaler({
 
   const loadModule = useCallback(async (): Promise<WebSRModule> => {
     if (moduleRef.current) return moduleRef.current;
-    // Import dinámico — solo en cliente
     const mod = (await import("@websr/websr")) as unknown as WebSRModule;
     moduleRef.current = mod;
     return mod;
@@ -53,24 +58,26 @@ export function useImageUpscaler({
 
   const ensureWebSR = useCallback(
     async (
-      networkName: string,
+      network: NetworkOption,
       canvas: HTMLCanvasElement,
     ): Promise<WebSRInstance> => {
       const mod = await loadModule();
       const gpu = await mod.initWebGPU();
       if (!gpu) throw new Error("WebGPU no disponible en este navegador");
 
-      const network = NETWORKS.find((n) => n.name === networkName);
-      if (!network) throw new Error(`Red desconocida: ${networkName}`);
-
-      const weightsRes = await fetch(network.weightUrl);
-      if (!weightsRes.ok) {
-        throw new Error(`No se pudieron cargar los pesos: ${network.weightUrl}`);
+      // Cache de pesos
+      let weights = weightsCacheRef.current.get(network.weightUrl);
+      if (!weights) {
+        const weightsRes = await fetch(network.weightUrl);
+        if (!weightsRes.ok) {
+          throw new Error(`No se pudieron cargar los pesos: ${network.weightUrl}`);
+        }
+        weights = await weightsRes.json();
+        weightsCacheRef.current.set(network.weightUrl, weights);
       }
-      const weights = await weightsRes.json();
 
       const websr = new mod.default({
-        network_name: networkName,
+        network_name: network.name,
         weights,
         gpu,
         canvas,
@@ -82,14 +89,19 @@ export function useImageUpscaler({
   );
 
   const upscale = useCallback(
-    async (source: HTMLImageElement | ImageBitmap, _scale: ScaleFactor) => {
+    async (
+      source: HTMLImageElement | ImageBitmap,
+      _scale: ScaleFactor,
+      mode: ContentMode,
+    ) => {
       setStatus("processing");
       setError(null);
       setResult(null);
       setProcessTime(null);
 
       try {
-        const networkName = "anime4k/cnn-2x-l";
+        // Usar la red large (calidad) para imágenes, según el modo
+        const network = getNetwork(mode, false);
         const canvas = canvasRef.current;
         if (!canvas) throw new Error("Canvas no disponible");
 
@@ -98,34 +110,29 @@ export function useImageUpscaler({
         const startTime = performance.now();
 
         if (_scale === 2) {
-          // Una pasada 2x — crear instancia fresca para este canvas
           websrRef.current?.dispose?.();
-          const websr = await ensureWebSR(networkName, canvas);
+          const websr = await ensureWebSR(network, canvas);
           websrRef.current = websr;
           canvas.width = srcWidth * 2;
           canvas.height = srcHeight * 2;
           await websr.render(source);
         } else {
-          // 4x = dos pasadas 2x, usando canvas oculto para la intermedia
           if (!hiddenCanvasRef.current) {
             hiddenCanvasRef.current = document.createElement("canvas");
           }
           const hidden = hiddenCanvasRef.current;
 
-          // Pasada 1: source → hidden canvas (2x)
           hiddenWebsrRef.current?.dispose?.();
-          const websrHidden = await ensureWebSR(networkName, hidden);
+          const websrHidden = await ensureWebSR(network, hidden);
           hiddenWebsrRef.current = websrHidden;
           hidden.width = srcWidth * 2;
           hidden.height = srcHeight * 2;
           await websrHidden.render(source);
 
-          // Capturar el resultado intermedio
           const intermediate = await createImageBitmap(hidden);
 
-          // Pasada 2: intermediate → canvas visible (2x más = 4x total)
           websrRef.current?.dispose?.();
-          const websr = await ensureWebSR(networkName, canvas);
+          const websr = await ensureWebSR(network, canvas);
           websrRef.current = websr;
           canvas.width = srcWidth * 4;
           canvas.height = srcHeight * 4;
@@ -134,7 +141,6 @@ export function useImageUpscaler({
 
         const elapsed = performance.now() - startTime;
 
-        // Convertir el canvas a blob
         const blob = await new Promise<Blob>((resolve, reject) => {
           canvas.toBlob(
             (b) => {
@@ -172,7 +178,6 @@ export function useImageUpscaler({
     setError(null);
   }, [result]);
 
-  // Limpiar al desmontar
   useEffect(() => {
     return () => {
       if (result) URL.revokeObjectURL(result.url);

@@ -8,6 +8,8 @@ export type ProcessingStatus =
   | "done"
   | "error";
 
+export type ContentMode = "anime" | "real";
+
 export interface NetworkOption {
   name: string;
   label: string;

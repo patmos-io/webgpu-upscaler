@@ -1,4 +1,4 @@
-import type { NetworkOption } from "@/types";
+import type { NetworkOption, ContentMode } from "@/types";
 
 /**
  * Redes neuronales disponibles para upscaling.
@@ -15,20 +15,43 @@ import type { NetworkOption } from "@/types";
  *   - l (large) — mejor calidad, más lento. Ideal para imágenes estáticas.
  *   - s (small) — rápido, buena calidad. Mejor para video.
  */
-export const NETWORKS: NetworkOption[] = [
-  {
-    name: "anime4k/cnn-2x-l",
-    label: "Anime4K CNN-L (2x)",
-    description: "Mejor calidad, más lento. Ideal para imágenes estáticas.",
-    weightUrl: "/weights/cnn-2x-l-an.json",
-  },
-  {
-    name: "anime4k/cnn-2x-s",
-    label: "Anime4K CNN-S (2x)",
-    description: "Rápido, buena calidad. Mejor para video en tiempo real.",
-    weightUrl: "/weights/cnn-2x-s-an.json",
-  },
-];
+export const NETWORKS: Record<ContentMode, NetworkOption[]> = {
+  anime: [
+    {
+      name: "anime4k/cnn-2x-l",
+      label: "Anime4K CNN-L (2x)",
+      description: "Mejor calidad, más lento. Ideal para imágenes estáticas.",
+      weightUrl: "/weights/cnn-2x-l-an.json",
+    },
+    {
+      name: "anime4k/cnn-2x-s",
+      label: "Anime4K CNN-S (2x)",
+      description: "Rápido, buena calidad. Mejor para video en tiempo real.",
+      weightUrl: "/weights/cnn-2x-s-an.json",
+    },
+  ],
+  real: [
+    {
+      name: "anime4k/cnn-2x-l",
+      label: "RealLife CNN-L (2x)",
+      description: "Mejor calidad para fotos. Más lento.",
+      weightUrl: "/weights/cnn-2x-l-rl.json",
+    },
+    {
+      name: "anime4k/cnn-2x-s",
+      label: "RealLife CNN-S (2x)",
+      description: "Rápido para video real. Buena calidad.",
+      weightUrl: "/weights/cnn-2x-s-rl.json",
+    },
+  ],
+};
+
+/**
+ * Devuelve la red adecuada según el modo de contenido.
+ */
+export function getNetwork(mode: ContentMode, fast: boolean): NetworkOption {
+  return NETWORKS[mode][fast ? 1 : 0];
+}
 
 /**
  * Verifica si el navegador soporta WebGPU.

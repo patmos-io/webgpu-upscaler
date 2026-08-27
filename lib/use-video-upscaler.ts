@@ -6,7 +6,7 @@ import type {
   WebSRModule,
   WebSRInstance,
 } from "@/types";
-import { NETWORKS } from "@/lib/websr";
+import { getNetwork } from "@/lib/websr";
 
 interface UseVideoUpscalerResult {
   status: ProcessingStatus;
@@ -74,7 +74,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
     }
     const canvas = hiddenCanvasRef.current;
 
-    const network = NETWORKS[1]; // cnn-2x-s (más rápido para video)
+    const network = getNetwork("real", true); // cnn-2x-s real-life (rápido para video)
     const weightsRes = await fetch(network.weightUrl);
     if (!weightsRes.ok) throw new Error("No se pudieron cargar los pesos del modelo");
     const weights = await weightsRes.json();
