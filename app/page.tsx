@@ -9,12 +9,12 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("image");
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header — full width */}
-      <header className="border-b border-[var(--border)]">
-        <div className="flex items-center justify-between px-6 py-4 lg:px-10">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header — slim, full width */}
+      <header className="shrink-0 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between px-6 py-3 lg:px-8">
           <div className="flex items-baseline gap-3">
-            <h1 className="text-lg font-semibold tracking-tight">
+            <h1 className="text-base font-semibold tracking-tight">
               GPU Upscaler
             </h1>
             <span className="font-mono text-xs text-[var(--text-muted)]">
@@ -32,44 +32,36 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main — full width, fills remaining height */}
-      <main className="flex-1 flex flex-col px-4 py-6 lg:px-8 lg:py-8">
-        {/* Intro */}
-        <div className="mb-6 max-w-3xl">
-          <h2 className="text-2xl font-semibold leading-tight tracking-tight lg:text-3xl">
-            Escalá imágenes y video con tu GPU.
-            <br />
-            <span className="text-[var(--text-muted)]">
+      {/* Main — fills all remaining height, no scroll on page */}
+      <main className="flex-1 flex flex-col px-4 py-4 lg:px-8 lg:py-6 min-h-0 gap-4">
+        {/* Intro — compact, one line */}
+        <div className="shrink-0">
+          <h2 className="text-xl font-semibold leading-tight tracking-tight lg:text-2xl">
+            Escalá imágenes y video con tu GPU.{" "}
+            <span className="text-[var(--text-muted)] font-normal">
               Gratis, sin servidor, sin upload.
             </span>
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-            Una red neural corre en los Tensor Cores de tu placa de video via
-            WebGPU. El video nunca sale de tu navegador. Necesitás Chrome 113+,
-            Edge 113+, o cualquier navegador con soporte WebGPU.
-          </p>
         </div>
 
-        {/* Tabs — full width */}
-        <div className="flex-1 flex flex-col border border-[var(--border)] bg-[var(--surface)]">
+        {/* Work panel — fills all remaining space */}
+        <div className="flex-1 flex flex-col border border-[var(--border)] bg-[var(--surface)] min-h-0 overflow-hidden">
           <TabSwitcher active={tab} onChange={setTab} />
-          <div className="flex-1 flex flex-col p-4 lg:p-6 min-h-0">
+          <div className="flex-1 flex flex-col p-4 lg:p-6 min-h-0 overflow-y-auto">
             {tab === "image" && <ImageUpscaler />}
             {tab === "video" && <VideoUpscaler />}
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-6 border-t border-[var(--border)] pt-4 text-xs text-[var(--text-muted)]">
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-            <p>
-              Todo el procesamiento ocurre en tu GPU local. Cero costos de
-              servidor. Build con Next.js + WebSR SDK + WebCodecs.
-            </p>
-            <p className="font-mono">
-              $0.00 / mes · 0 bytes subidos · ∞ escalados
-            </p>
-          </div>
+        {/* Footer — slim */}
+        <footer className="shrink-0 flex items-center justify-between text-xs text-[var(--text-muted)] py-1">
+          <p>
+            Todo el procesamiento ocurre en tu GPU local. Cero costos de
+            servidor.
+          </p>
+          <p className="font-mono hidden sm:block">
+            $0.00/mes · 0 bytes subidos · ∞ escalados
+          </p>
         </footer>
       </main>
     </div>

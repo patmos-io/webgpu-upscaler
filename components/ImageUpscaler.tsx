@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useImageUpscaler } from "@/lib/use-image-upscaler";
-import { formatBytes, formatMs, isWebGPUSupported } from "@/lib/websr";
+import { formatMs, isWebGPUSupported } from "@/lib/websr";
 import type { ContentMode, ScaleFactor } from "@/types";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 
@@ -12,7 +12,6 @@ export function ImageUpscaler() {
   const [mode, setMode] = useState<ContentMode>("real");
   const [dragActive, setDragActive] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
-  const [sourceSize, setSourceSize] = useState<number>(0);
   const [sourceDims, setSourceDims] = useState<{ w: number; h: number } | null>(null);
 
   const { status, error, result, processTime, upscale, reset } =
@@ -26,7 +25,6 @@ export function ImageUpscaler() {
       if (sourceUrl) URL.revokeObjectURL(sourceUrl);
       const url = URL.createObjectURL(file);
       setSourceUrl(url);
-      setSourceSize(file.size);
 
       const img = new Image();
       img.src = url;
@@ -67,110 +65,125 @@ export function ImageUpscaler() {
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
     setSourceUrl(null);
     setSourceDims(null);
-    setSourceSize(0);
     reset();
   }, [sourceUrl, reset]);
 
   return (
-    <div className="flex flex-col gap-6 fade-in h-full">
-      {/* Canvas oculto — WebSR renderiza aquí, luego lo pasamos a blob/URL */}
+    <div className="flex flex-col gap-4 fade-in h-full min-h-0">
+      {/* Canvas oculto */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* WebGPU warning */}
       {!webgpu && (
-        <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
+        <div className="shrink-0 border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
           Tu navegador no soporta WebGPU. Usá Chrome 113+ o Edge 113+ para usar
           esta herramienta.
         </div>
       )}
 
-      {/* Upload zone */}
+      {/* === EMPTY STATE: upload zone fills all available space === */}
       {!sourceUrl && (
-        <label
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-32 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
-            dragActive ? "drag-active" : ""
-          }`}
-        >
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
+        <div className="flex-1 flex flex-col min-h-0 gap-4">
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
             }}
-          />
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-[var(--text)]">
-              Arrastrá una imagen o hacé clic para subir
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              PNG, JPG, WebP — se procesa 100% en tu navegador
-            </p>
-          </div>
-        </label>
-      )}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            className={`flex flex-1 flex-col items-center justify-center gap-4 border-2 border-dashed border-[var(--border)] text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] min-h-0 ${
+              dragActive ? "drag-active" : ""
+            }`}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-[var(--text)]">
+                Arrastrá una imagen o hacé clic para subir
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                PNG, JPG, WebP — se procesa 100% en tu navegador
+              </p>
+            </div>
+          </label>
 
-      {/* Result with before/after slider */}
-      {sourceUrl && result && (
-        <div className="flex flex-col gap-2 fade-in" style={{ minHeight: "400px" }}>
-          <div className="flex-1 min-h-0">
-          <BeforeAfterSlider
-            beforeUrl={sourceUrl}
-            afterUrl={result.url}
-            beforeLabel="Original"
-            afterLabel="Escalado"
-            beforeDims={sourceDims ?? undefined}
-            afterDims={{ w: result.width, h: result.height }}
-          />
+          {/* How it works — compact, below upload */}
+          <div className="shrink-0 grid grid-cols-3 gap-4 text-xs">
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">01</span>
+              <p className="text-[var(--text-muted)]">Subís una imagen. Nada sale de tu navegador.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">02</span>
+              <p className="text-[var(--text-muted)]">Una red neural corre en tu GPU via WebGPU.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">03</span>
+              <p className="text-[var(--text-muted)]">Descargás el resultado. Sin límites, sin registro.</p>
+            </div>
           </div>
-          <p className="text-center text-xs text-[var(--text-muted)]">
-            Arrastrá el slider para comparar antes y después
-          </p>
         </div>
       )}
 
-      {/* Processing state */}
-      {sourceUrl && status === "processing" && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] py-32">
-            <div className="flex items-center gap-3">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
-              <span className="text-sm text-[var(--text-muted)]">Procesando en tu GPU…</span>
-            </div>
+      {/* === RESULT: slider fills space, controls below === */}
+      {sourceUrl && result && (
+        <>
+          <div className="flex-1 min-h-0">
+            <BeforeAfterSlider
+              beforeUrl={sourceUrl}
+              afterUrl={result.url}
+              beforeLabel="Original"
+              afterLabel="Escalado"
+              beforeDims={sourceDims ?? undefined}
+              afterDims={{ w: result.width, h: result.height }}
+            />
           </div>
-          <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
+          <p className="shrink-0 text-center text-xs text-[var(--text-muted)]">
+            Arrastrá el slider para comparar
+          </p>
+        </>
+      )}
+
+      {/* === PROCESSING === */}
+      {sourceUrl && status === "processing" && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
+            <span className="text-sm text-[var(--text-muted)]">Procesando en tu GPU…</span>
+          </div>
+          <div className="h-1 w-48 overflow-hidden bg-[var(--surface-2)]">
             <div className="h-full w-1/3 animate-pulse bg-[var(--accent)]" />
           </div>
         </div>
       )}
 
-      {/* Idle state with source loaded */}
+      {/* === IDLE: source loaded, preview === */}
       {sourceUrl && status === "idle" && (
-        <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
+        <div className="flex-1 flex items-center justify-center min-h-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={sourceUrl}
             alt="Original"
-            className="mx-auto max-h-[70vh] w-auto object-contain"
+            className="max-h-full max-w-full object-contain"
           />
         </div>
       )}
 
-      {/* Controls */}
+      {/* === CONTROLS BAR === */}
       {sourceUrl && (
-        <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
-          {/* Mode + Scale */}
-          <div className="flex flex-wrap items-center gap-6">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
+          {/* Left: mode + scale + info */}
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
               {(["real", "anime"] as ContentMode[]).map((m) => (
@@ -205,26 +218,25 @@ export function ImageUpscaler() {
               ))}
             </div>
 
-            {processTime !== null && status === "done" && (
-              <span className="font-mono text-xs text-[var(--text-muted)]">
-                Procesado en {formatMs(processTime)}
-              </span>
-            )}
             {sourceDims && (
               <span className="font-mono text-xs text-[var(--text-muted)]">
-                {sourceDims.w}×{sourceDims.h} →{" "}
-                {result ? `${result.width}×${result.height}` : `${sourceDims.w * scale}×${sourceDims.h * scale}`}
+                {sourceDims.w}×{sourceDims.h}
+                {result ? ` → ${result.width}×${result.height}` : ` → ${sourceDims.w * scale}×${sourceDims.h * scale}`}
+              </span>
+            )}
+            {processTime !== null && status === "done" && (
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                {formatMs(processTime)}
               </span>
             )}
           </div>
 
-          {/* Actions */}
+          {/* Right: actions */}
           <div className="flex gap-3">
             {status !== "processing" && (
               <button
                 onClick={handleProcess}
-                disabled={!sourceUrl}
-                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)] disabled:opacity-40"
+                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
               >
                 Escalar {scale}x
               </button>
@@ -245,39 +257,11 @@ export function ImageUpscaler() {
             </button>
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
+            <div className="w-full border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
               {error}
             </div>
           )}
-        </div>
-      )}
-
-      {/* How it works */}
-      {!sourceUrl && webgpu && (
-        <div className="grid grid-cols-1 gap-6 border-t border-[var(--border)] pt-6 md:grid-cols-3">
-          <div>
-            <span className="font-mono text-xs text-[var(--accent)]">01</span>
-            <p className="mt-2 text-sm text-[var(--text)]">
-              Subís una imagen. Nada se sube a un servidor — todo queda en tu
-              navegador.
-            </p>
-          </div>
-          <div>
-            <span className="font-mono text-xs text-[var(--accent)]">02</span>
-            <p className="mt-2 text-sm text-[var(--text)]">
-              Una red neural corre en tu GPU local via WebGPU. Elegí modo Foto
-              para imágenes reales o Anime para ilustraciones.
-            </p>
-          </div>
-          <div>
-            <span className="font-mono text-xs text-[var(--accent)]">03</span>
-            <p className="mt-2 text-sm text-[var(--text)]">
-              Descargás el resultado. Sin marca de agua, sin límites, sin
-              registro. Costo de cómputo cero.
-            </p>
-          </div>
         </div>
       )}
     </div>

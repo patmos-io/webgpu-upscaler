@@ -51,8 +51,8 @@ export function BeforeAfterSlider({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden border border-[var(--border)] bg-[var(--surface)] select-none"
-      style={{ height: "100%", minHeight: "400px" }}
+      className="relative w-full h-full overflow-hidden border border-[var(--border)] bg-black select-none"
+      style={{ minHeight: "200px" }}
       onMouseDown={(e) => {
         // Click anywhere on the image to move the slider there
         handleMove(e.clientX);

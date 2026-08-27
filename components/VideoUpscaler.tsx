@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useVideoUpscaler } from "@/lib/use-video-upscaler";
 import { formatBytes } from "@/lib/websr";
 import type { ScaleFactor } from "@/types";
@@ -66,123 +66,132 @@ export function VideoUpscaler() {
   }, [sourceUrl, resultUrl, reset]);
 
   return (
-    <div className="flex flex-col gap-6 fade-in h-full">
-      {/* Upload zone */}
+    <div className="flex flex-col gap-4 fade-in h-full min-h-0">
+      {/* === EMPTY STATE: upload fills space === */}
       {!sourceUrl && (
-        <label
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-          className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[var(--border)] py-32 px-6 text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] ${
-            dragActive ? "drag-active" : ""
-          }`}
-        >
-          <input
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
+        <div className="flex-1 flex flex-col min-h-0 gap-4">
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
             }}
-          />
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-[var(--text-muted)]"
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            className={`flex flex-1 flex-col items-center justify-center gap-4 border-2 border-dashed border-[var(--border)] text-center cursor-pointer transition-colors hover:border-[var(--accent-dim)] min-h-0 ${
+              dragActive ? "drag-active" : ""
+            }`}
           >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-[var(--text)]">
-              Arrastrá un video o hacé clic para subir
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              MP4, WebM — se procesa 100% en tu navegador con WebCodecs + WebGPU
-            </p>
-          </div>
-        </label>
-      )}
-
-      {/* Source loaded — idle / processing state: show original */}
-      {sourceUrl && !resultUrl && (
-        <div className="flex flex-col gap-2 flex-1 min-h-0">
-          <VideoCompareSlider
-            beforeUrl={sourceUrl}
-            afterUrl={sourceUrl}
-            beforeLabel="Original"
-            afterLabel="Original"
-          />
-          <p className="text-center text-xs text-[var(--text-muted)]">
-            {status === "processing"
-              ? "Procesando en tu GPU… no cierres la pestaña"
-              : "Subí un video y escalalo. El resultado se compara acá."}
-          </p>
-        </div>
-      )}
-
-      {/* Processing state */}
-      {sourceUrl && status === "processing" && progress && (
-        <div className="space-y-2 border-t border-[var(--border)] pt-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-[var(--text)]">
-              {phaseLabels[progress.phase] || progress.phase}
-            </span>
-            <span className="font-mono text-xs text-[var(--text-muted)]">
-              {progress.framesProcessed} frames
-            </span>
-          </div>
-          <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
-            <div
-              className="h-full bg-[var(--accent)] transition-all duration-300"
-              style={{
-                width: progress.percent
-                  ? `${progress.percent}%`
-                  : progress.phase === "done"
-                    ? "100%"
-                    : "45%",
+            <input
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
               }}
             />
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-[var(--text)]">
+                Arrastrá un video o hacé clic para subir
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                MP4, WebM — se procesa con WebCodecs + WebGPU
+              </p>
+            </div>
+          </label>
+
+          <div className="shrink-0 grid grid-cols-3 gap-4 text-xs">
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">01</span>
+              <p className="text-[var(--text-muted)]">Subís un video. Se procesa 100% en tu navegador.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">02</span>
+              <p className="text-[var(--text-muted)]">Frame por frame se escala en tu GPU via WebGPU.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono text-[var(--accent)] shrink-0">03</span>
+              <p className="text-[var(--text-muted)]">Descargás el MP4 escalado. Sin upload, sin servidor.</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Result — before/after compare slider */}
+      {/* === RESULT: compare slider fills space === */}
       {sourceUrl && resultUrl && status === "done" && (
-        <div className="flex flex-col gap-2 flex-1 min-h-0">
-          <VideoCompareSlider
-            beforeUrl={sourceUrl}
-            afterUrl={resultUrl}
-            beforeLabel="Original"
-            afterLabel={`Escalado ${scale}x`}
-          />
-          <p className="text-center text-xs text-[var(--text-muted)]">
-            Arrastrá el slider para comparar antes y después
+        <>
+          <div className="flex-1 min-h-0">
+            <VideoCompareSlider
+              beforeUrl={sourceUrl}
+              afterUrl={resultUrl}
+              beforeLabel="Original"
+              afterLabel={`Escalado ${scale}x`}
+            />
+          </div>
+          <p className="shrink-0 text-center text-xs text-[var(--text-muted)]">
+            Arrastrá el slider para comparar
           </p>
+        </>
+      )}
+
+      {/* === IDLE: preview original in compare slider === */}
+      {sourceUrl && !resultUrl && status !== "processing" && (
+        <>
+          <div className="flex-1 min-h-0">
+            <VideoCompareSlider
+              beforeUrl={sourceUrl}
+              afterUrl={sourceUrl}
+              beforeLabel="Original"
+              afterLabel="Original"
+            />
+          </div>
+        </>
+      )}
+
+      {/* === PROCESSING: progress bar === */}
+      {sourceUrl && status === "processing" && progress && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
+          <div className="w-full max-w-md space-y-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-[var(--text)]">
+                {phaseLabels[progress.phase] || progress.phase}
+              </span>
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                {progress.framesProcessed} frames
+              </span>
+            </div>
+            <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
+              <div
+                className="h-full bg-[var(--accent)] transition-all duration-300"
+                style={{
+                  width: progress.percent
+                    ? `${progress.percent}%`
+                    : progress.phase === "done"
+                      ? "100%"
+                      : "45%",
+                }}
+              />
+            </div>
+            <p className="text-xs text-[var(--text-muted)] text-center">
+              Esto corre en tu GPU. No cierres la pestaña.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Controls */}
+      {/* === CONTROLS BAR === */}
       {sourceUrl && (
-        <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
-          {/* Info row */}
-          <div className="flex flex-wrap items-center gap-6">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
+          {/* Left: info */}
+          <div className="flex flex-wrap items-center gap-4">
             {sourceFile && (
               <span className="font-mono text-xs text-[var(--text-muted)]">
                 {formatBytes(sourceFile.size)}
               </span>
             )}
-          </div>
-
-          {/* Scale + Actions */}
-          <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--text-muted)]">Escala:</span>
               {[2, 4].map((s) => (
@@ -199,44 +208,44 @@ export function VideoUpscaler() {
                 </button>
               ))}
             </div>
+          </div>
 
-            <div className="flex gap-3">
-              {status !== "processing" && (
-                <button
-                  onClick={handleProcess}
-                  disabled={!sourceFile}
-                  className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)] disabled:opacity-40"
-                >
-                  Escalar {scale}x
-                </button>
-              )}
-              {status === "processing" && (
-                <button
-                  onClick={handleReset}
-                  className="px-6 py-2.5 border border-[var(--danger)] text-[var(--danger)] text-sm font-medium transition-colors hover:bg-[rgba(232,93,93,0.1)]"
-                >
-                  Cancelar
-                </button>
-              )}
-              {resultUrl && (
-                <button
-                  onClick={handleDownload}
-                  className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                >
-                  Descargar MP4
-                </button>
-              )}
+          {/* Right: actions */}
+          <div className="flex gap-3">
+            {status !== "processing" && (
+              <button
+                onClick={handleProcess}
+                className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
+              >
+                Escalar {scale}x
+              </button>
+            )}
+            {status === "processing" && (
               <button
                 onClick={handleReset}
-                className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+                className="px-6 py-2.5 border border-[var(--danger)] text-[var(--danger)] text-sm font-medium transition-colors hover:bg-[rgba(232,93,93,0.1)]"
               >
-                Limpiar
+                Cancelar
               </button>
-            </div>
+            )}
+            {resultUrl && (
+              <button
+                onClick={handleDownload}
+                className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Descargar MP4
+              </button>
+            )}
+            <button
+              onClick={handleReset}
+              className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+            >
+              Limpiar
+            </button>
           </div>
 
           {error && (
-            <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
+            <div className="w-full border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
               {error}
             </div>
           )}
