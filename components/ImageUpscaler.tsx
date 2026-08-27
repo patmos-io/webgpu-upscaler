@@ -72,7 +72,7 @@ export function ImageUpscaler() {
   }, [sourceUrl, reset]);
 
   return (
-    <div className="space-y-6 fade-in">
+    <div className="flex flex-col gap-6 fade-in h-full">
       {/* Canvas oculto — WebSR renderiza aquí, luego lo pasamos a blob/URL */}
       <canvas ref={canvasRef} className="hidden" />
 
@@ -122,7 +122,8 @@ export function ImageUpscaler() {
 
       {/* Result with before/after slider */}
       {sourceUrl && result && (
-        <div className="space-y-4 fade-in">
+        <div className="flex flex-col gap-2 fade-in" style={{ minHeight: "400px" }}>
+          <div className="flex-1 min-h-0">
           <BeforeAfterSlider
             beforeUrl={sourceUrl}
             afterUrl={result.url}
@@ -131,6 +132,7 @@ export function ImageUpscaler() {
             beforeDims={sourceDims ?? undefined}
             afterDims={{ w: result.width, h: result.height }}
           />
+          </div>
           <p className="text-center text-xs text-[var(--text-muted)]">
             Arrastrá el slider para comparar antes y después
           </p>

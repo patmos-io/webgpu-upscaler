@@ -53,7 +53,7 @@ export default function Home() {
         {/* Tabs — full width */}
         <div className="flex-1 flex flex-col border border-[var(--border)] bg-[var(--surface)]">
           <TabSwitcher active={tab} onChange={setTab} />
-          <div className="flex-1 p-4 lg:p-6">
+          <div className="flex-1 flex flex-col p-4 lg:p-6 min-h-0">
             {tab === "image" && <ImageUpscaler />}
             {tab === "video" && <VideoUpscaler />}
           </div>

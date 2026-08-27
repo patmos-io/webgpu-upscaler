@@ -52,62 +52,67 @@ export function BeforeAfterSlider({
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden border border-[var(--border)] bg-[var(--surface)] select-none"
-      style={{ aspectRatio: afterDims ? `${afterDims.w} / ${afterDims.h}` : "1" }}
+      style={{ height: "100%", minHeight: "400px" }}
+      onMouseDown={(e) => {
+        // Click anywhere on the image to move the slider there
+        handleMove(e.clientX);
+        setDragging(true);
+      }}
+      onTouchStart={(e) => {
+        handleMove(e.touches[0].clientX);
+        setDragging(true);
+      }}
     >
-      {/* After (full) */}
-      <div className="absolute inset-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={afterUrl}
-          alt={afterLabel}
-          className="h-full w-full object-contain"
-          style={{ imageRendering: "auto" }}
-          draggable={false}
-        />
-        <span className="absolute right-3 top-3 bg-[var(--bg)]/80 px-2 py-1 text-xs font-mono text-[var(--accent)] backdrop-blur-sm">
-          {afterLabel}
-          {afterDims && ` ${afterDims.w}×${afterDims.h}`}
-        </span>
-      </div>
+      {/* After (full, background) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={afterUrl}
+        alt={afterLabel}
+        className="absolute inset-0 h-full w-full object-contain"
+        draggable={false}
+      />
+      <span className="absolute right-3 top-3 z-10 bg-[var(--bg)]/80 px-2 py-1 text-xs font-mono text-[var(--accent)] backdrop-blur-sm">
+        {afterLabel}
+        {afterDims && ` ${afterDims.w}×${afterDims.h}`}
+      </span>
 
-      {/* Before (clipped) */}
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${position}%` }}
+      {/* Before (clipped via clip-path — no deformation) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={beforeUrl}
+        alt={beforeLabel}
+        className="absolute inset-0 h-full w-full object-contain"
+        style={{
+          clipPath: `inset(0 ${100 - position}% 0 0)`,
+        }}
+        draggable={false}
+      />
+      <span
+        className="absolute left-3 top-3 z-10 bg-[var(--bg)]/80 px-2 py-1 text-xs font-mono text-[var(--text-muted)] backdrop-blur-sm"
+        style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={beforeUrl}
-          alt={beforeLabel}
-          className="h-full w-full object-contain"
-          style={{
-            width: containerRef.current
-              ? `${containerRef.current.getBoundingClientRect().width}px`
-              : "100%",
-            maxWidth: "none",
-          }}
-          draggable={false}
-        />
-        <span className="absolute left-3 top-3 bg-[var(--bg)]/80 px-2 py-1 text-xs font-mono text-[var(--text-muted)] backdrop-blur-sm">
-          {beforeLabel}
-          {beforeDims && ` ${beforeDims.w}×${beforeDims.h}`}
-        </span>
-      </div>
+        {beforeLabel}
+        {beforeDims && ` ${beforeDims.w}×${beforeDims.h}`}
+      </span>
 
-      {/* Slider handle */}
+      {/* Slider line + handle */}
       <div
-        className="absolute top-0 bottom-0 w-0.5 bg-[var(--accent)] cursor-ew-resize"
+        className="absolute top-0 bottom-0 z-20 w-0.5 bg-[var(--accent)] pointer-events-none"
         style={{ left: `${position}%`, transform: "translateX(-50%)" }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
       >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--accent)] bg-[var(--bg)] shadow-lg">
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--accent)] bg-[var(--bg)] shadow-lg pointer-events-auto cursor-ew-resize"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragging(true);
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragging(true);
+          }}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--accent)]">
             <path d="M8 18L4 12l4-6M16 6l4 6-4 6" />
           </svg>
