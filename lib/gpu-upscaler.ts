@@ -60,7 +60,7 @@ fn fs(in: VOut) -> @location(0) vec4f {
       wt += w;
     }
   }
-  return c / wt;
+  return vec4f((c / wt).rgb, 1.0);
 }
 `;
 
@@ -103,7 +103,7 @@ fn fs(in: VOut) -> @location(0) vec4f {
       wt += w;
     }
   }
-  return c / wt;
+  return vec4f((c / wt).rgb, 1.0);
 }
 `;
 
@@ -115,7 +115,7 @@ ${VERTEX}
 
 @fragment
 fn fs(in: VOut) -> @location(0) vec4f {
-  return textureSample(tex, samp, in.uv);
+  return vec4f(textureSample(tex, samp, in.uv).rgb, 1.0);
 }
 `;
 
@@ -137,7 +137,7 @@ fn fs(in: VOut) -> @location(0) vec4f {
   let w = textureSample(tex, samp, in.uv + vec2f(-ts.x, 0.0));
   let blur = (n + s + e + w) * 0.25;
   let sharp = c + (c - blur) * u_params.x;
-  return vec4f(clamp(sharp.rgb, vec3f(0.0), vec3f(1.0)), c.a);
+  return vec4f(clamp(sharp.rgb, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -490,8 +490,12 @@ async function canvas2DUpscale(
   const canvas = document.createElement("canvas");
   canvas.width = dstW;
   canvas.height = dstH;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+
+  // Fill white first — JPEGs should never produce transparent PNGs
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, dstW, dstH);
 
   // Browser's built-in high-quality upscaling (uses bilinear/bicubic internally)
   ctx.imageSmoothingEnabled = true;

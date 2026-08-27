@@ -231,8 +231,11 @@ export function useImageUpscaler({
         // Convertir a blob via canvas
         canvas.width = finalW;
         canvas.height = finalH;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+        // Fill with white first — JPEGs should never produce transparent PNGs
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, finalW, finalH);
         ctx.drawImage(finalBitmap, 0, 0);
 
         const blob = await new Promise<Blob>((resolve, reject) => {
