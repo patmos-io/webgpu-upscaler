@@ -31,9 +31,11 @@ export function useImageUpscaler({
   const [result, setResult] = useState<ImageResult | null>(null);
   const [processTime, setProcessTime] = useState<number | null>(null);
 
-  const websrRef = useRef<WebSRInstance | null>(null);
   const moduleRef = useRef<WebSRModule | null>(null);
-  const currentNetworkRef = useRef<string | null>(null);
+  const websrRef = useRef<WebSRInstance | null>(null);
+  // Canvas oculto para la pasada intermedia del 4x
+  const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hiddenWebsrRef = useRef<WebSRInstance | null>(null);
 
   // Detectar WebGPU al montar
   useEffect(() => {
@@ -50,23 +52,13 @@ export function useImageUpscaler({
   }, []);
 
   const ensureWebSR = useCallback(
-    async (networkName: string): Promise<WebSRInstance> => {
+    async (
+      networkName: string,
+      canvas: HTMLCanvasElement,
+    ): Promise<WebSRInstance> => {
       const mod = await loadModule();
-      const canvas = canvasRef.current;
-      if (!canvas) throw new Error("Canvas no disponible");
       const gpu = await mod.initWebGPU();
       if (!gpu) throw new Error("WebGPU no disponible en este navegador");
-
-      // Si ya tenemos una instancia con la misma red, reusar
-      if (websrRef.current && currentNetworkRef.current === networkName) {
-        return websrRef.current;
-      }
-
-      // Limpiar instancia anterior si cambió la red
-      if (websrRef.current) {
-        websrRef.current.dispose?.();
-        websrRef.current = null;
-      }
 
       const network = NETWORKS.find((n) => n.name === networkName);
       if (!network) throw new Error(`Red desconocida: ${networkName}`);
@@ -84,11 +76,9 @@ export function useImageUpscaler({
         canvas,
       });
 
-      websrRef.current = websr;
-      currentNetworkRef.current = networkName;
       return websr;
     },
-    [canvasRef, loadModule],
+    [loadModule],
   );
 
   const upscale = useCallback(
@@ -99,32 +89,44 @@ export function useImageUpscaler({
       setProcessTime(null);
 
       try {
-        // CNN-2x siempre escala 2x. Para 4x, aplicamos 2x dos veces.
         const networkName = "anime4k/cnn-2x-l";
-        const websr = await ensureWebSR(networkName);
         const canvas = canvasRef.current;
         if (!canvas) throw new Error("Canvas no disponible");
 
-        // Medir la imagen de entrada
         const srcWidth = source.width;
         const srcHeight = source.height;
-
         const startTime = performance.now();
 
         if (_scale === 2) {
-          // Una pasada 2x
+          // Una pasada 2x — crear instancia fresca para este canvas
+          websrRef.current?.dispose?.();
+          const websr = await ensureWebSR(networkName, canvas);
+          websrRef.current = websr;
           canvas.width = srcWidth * 2;
           canvas.height = srcHeight * 2;
           await websr.render(source);
         } else {
-          // Dos pasadas 2x = 4x
-          // Primera pasada: resultado intermedio en el canvas
-          canvas.width = srcWidth * 2;
-          canvas.height = srcHeight * 2;
-          await websr.render(source);
+          // 4x = dos pasadas 2x, usando canvas oculto para la intermedia
+          if (!hiddenCanvasRef.current) {
+            hiddenCanvasRef.current = document.createElement("canvas");
+          }
+          const hidden = hiddenCanvasRef.current;
 
-          // Tomar el resultado intermedio como entrada de la segunda pasada
-          const intermediate = await createImageBitmap(canvas);
+          // Pasada 1: source → hidden canvas (2x)
+          hiddenWebsrRef.current?.dispose?.();
+          const websrHidden = await ensureWebSR(networkName, hidden);
+          hiddenWebsrRef.current = websrHidden;
+          hidden.width = srcWidth * 2;
+          hidden.height = srcHeight * 2;
+          await websrHidden.render(source);
+
+          // Capturar el resultado intermedio
+          const intermediate = await createImageBitmap(hidden);
+
+          // Pasada 2: intermediate → canvas visible (2x más = 4x total)
+          websrRef.current?.dispose?.();
+          const websr = await ensureWebSR(networkName, canvas);
+          websrRef.current = websr;
           canvas.width = srcWidth * 4;
           canvas.height = srcHeight * 4;
           await websr.render(intermediate);
@@ -175,6 +177,7 @@ export function useImageUpscaler({
     return () => {
       if (result) URL.revokeObjectURL(result.url);
       websrRef.current?.dispose?.();
+      hiddenWebsrRef.current?.dispose?.();
     };
   }, [result]);
 
