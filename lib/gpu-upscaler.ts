@@ -321,6 +321,20 @@ export async function gpuUpscaleImage(
   scale: number,
   sharpen: number,
 ): Promise<ImageBitmap> {
+  try {
+    return await gpuUpscaleImageImpl(source, algorithm, scale, sharpen);
+  } catch (err) {
+    console.warn("[GPU] Shader upscaling failed, falling back to canvas 2D:", err);
+    return canvas2DUpscale(source, scale, sharpen);
+  }
+}
+
+async function gpuUpscaleImageImpl(
+  source: ImageBitmap,
+  algorithm: UpscaleAlgorithm,
+  scale: number,
+  sharpen: number,
+): Promise<ImageBitmap> {
   const device = await getGPUDevice();
   const { w: srcW, h: srcH } = getSourceDims(source);
   const dstW = Math.round(srcW * scale);
@@ -376,6 +390,7 @@ export async function gpuUpscaleImage(
   upscalePass.end();
 
   let finalTex = upscaleTex;
+  let uniformBuffer: GPUBuffer | null = null;
 
   // --- Sharpening pass (optional) ---
   if (needsSharpen) {
@@ -386,7 +401,7 @@ export async function gpuUpscaleImage(
     });
 
     const sharpPipeline = getSharpenPipeline(device);
-    const uniformBuffer = device.createBuffer({
+    uniformBuffer = device.createBuffer({
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -423,7 +438,6 @@ export async function gpuUpscaleImage(
   }
 
   // --- Submit render commands BEFORE readback ---
-  // Without this, the render passes never execute and the texture is empty (black).
   device.queue.submit([encoder.finish()]);
 
   // --- Read back ---
@@ -433,8 +447,85 @@ export async function gpuUpscaleImage(
   srcTex.destroy();
   if (needsSharpen) upscaleTex.destroy();
   finalTex.destroy();
+  if (uniformBuffer) uniformBuffer.destroy();
+
+  // --- Verify result is not all-black (GPU validation errors silently produce black) ---
+  const verifyCanvas = document.createElement("canvas");
+  verifyCanvas.width = Math.min(dstW, 64);
+  verifyCanvas.height = Math.min(dstH, 64);
+  const vctx = verifyCanvas.getContext("2d");
+  if (vctx) {
+    vctx.drawImage(bitmap, 0, 0, verifyCanvas.width, verifyCanvas.height);
+    const sample = vctx.getImageData(0, 0, verifyCanvas.width, verifyCanvas.height).data;
+    let hasContent = false;
+    for (let i = 0; i < sample.length; i += 4) {
+      if (sample[i] > 0 || sample[i + 1] > 0 || sample[i + 2] > 0 || sample[i + 3] > 0) {
+        hasContent = true;
+        break;
+      }
+    }
+    if (!hasContent) {
+      console.warn("[GPU] Shader produced all-black texture, falling back to canvas 2D");
+      throw new Error("GPU shader produced empty output");
+    }
+  }
 
   return bitmap;
+}
+
+// ============================================================
+// Canvas 2D fallback — always works, no WebGPU required
+// ============================================================
+
+async function canvas2DUpscale(
+  source: ImageBitmap,
+  scale: number,
+  sharpen: number,
+): Promise<ImageBitmap> {
+  const srcW = source.width;
+  const srcH = source.height;
+  const dstW = Math.round(srcW * scale);
+  const dstH = Math.round(srcH * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = dstW;
+  canvas.height = dstH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+
+  // Browser's built-in high-quality upscaling (uses bilinear/bicubic internally)
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, dstW, dstH);
+
+  // Optional sharpening pass via convolution
+  if (sharpen > 0) {
+    const imageData = ctx.getImageData(0, 0, dstW, dstH);
+    const data = imageData.data;
+    const amount = sharpen;
+    const weight = 1 + 4 * amount;
+    const side = -amount;
+
+    const original = new Uint8ClampedArray(data);
+
+    for (let y = 1; y < dstH - 1; y++) {
+      for (let x = 1; x < dstW - 1; x++) {
+        const idx = (y * dstW + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const center = original[idx + c];
+          const up = original[idx - dstW * 4 + c];
+          const down = original[idx + dstW * 4 + c];
+          const left = original[idx - 4 + c];
+          const right = original[idx + 4 + c];
+          const sharp = center * weight + (up + down + left + right) * side;
+          data[idx + c] = Math.max(0, Math.min(255, sharp));
+        }
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  return createImageBitmap(canvas);
 }
 
 // ============================================================
