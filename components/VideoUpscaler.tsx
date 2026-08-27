@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useVideoUpscaler } from "@/lib/use-video-upscaler";
 import { formatBytes } from "@/lib/websr";
 import type { ScaleFactor } from "@/types";
+import { VideoCompareSlider } from "@/components/VideoCompareSlider";
 
 const phaseLabels: Record<string, string> = {
   demuxing: "Leyendo video",
@@ -65,7 +66,7 @@ export function VideoUpscaler() {
   }, [sourceUrl, resultUrl, reset]);
 
   return (
-    <div className="space-y-6 fade-in">
+    <div className="flex flex-col gap-6 fade-in h-full">
       {/* Upload zone */}
       {!sourceUrl && (
         <label
@@ -110,78 +111,78 @@ export function VideoUpscaler() {
         </label>
       )}
 
-      {/* Source preview + controls */}
+      {/* Source loaded — idle / processing state: show original */}
+      {sourceUrl && !resultUrl && (
+        <div className="flex flex-col gap-2 flex-1 min-h-0">
+          <VideoCompareSlider
+            beforeUrl={sourceUrl}
+            afterUrl={sourceUrl}
+            beforeLabel="Original"
+            afterLabel="Original"
+          />
+          <p className="text-center text-xs text-[var(--text-muted)]">
+            {status === "processing"
+              ? "Procesando en tu GPU… no cierres la pestaña"
+              : "Subí un video y escalalo. El resultado se compara acá."}
+          </p>
+        </div>
+      )}
+
+      {/* Processing state */}
+      {sourceUrl && status === "processing" && progress && (
+        <div className="space-y-2 border-t border-[var(--border)] pt-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-[var(--text)]">
+              {phaseLabels[progress.phase] || progress.phase}
+            </span>
+            <span className="font-mono text-xs text-[var(--text-muted)]">
+              {progress.framesProcessed} frames
+            </span>
+          </div>
+          <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
+            <div
+              className="h-full bg-[var(--accent)] transition-all duration-300"
+              style={{
+                width: progress.percent
+                  ? `${progress.percent}%`
+                  : progress.phase === "done"
+                    ? "100%"
+                    : "45%",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Result — before/after compare slider */}
+      {sourceUrl && resultUrl && status === "done" && (
+        <div className="flex flex-col gap-2 flex-1 min-h-0">
+          <VideoCompareSlider
+            beforeUrl={sourceUrl}
+            afterUrl={resultUrl}
+            beforeLabel="Original"
+            afterLabel={`Escalado ${scale}x`}
+          />
+          <p className="text-center text-xs text-[var(--text-muted)]">
+            Arrastrá el slider para comparar antes y después
+          </p>
+        </div>
+      )}
+
+      {/* Controls */}
       {sourceUrl && (
-        <div className="space-y-6">
-          {/* Source video */}
-          <div>
-            <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Video original
+        <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
+          {/* Info row */}
+          <div className="flex flex-wrap items-center gap-6">
+            {sourceFile && (
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                {formatBytes(sourceFile.size)}
               </span>
-              {sourceFile && (
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  {formatBytes(sourceFile.size)}
-                </span>
-              )}
-            </div>
-            <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
-              <video
-                src={sourceUrl}
-                controls
-                className="max-h-[60vh] w-full object-contain"
-              />
-            </div>
+            )}
           </div>
 
-          {/* Progress */}
-          {status === "processing" && progress && (
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-[var(--text)]">
-                  {phaseLabels[progress.phase] || progress.phase}
-                </span>
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  {progress.framesProcessed} frames
-                </span>
-              </div>
-              <div className="h-1 w-full overflow-hidden bg-[var(--surface-2)]">
-                <div
-                  className="h-full bg-[var(--accent)] transition-all duration-300"
-                  style={{
-                    width: progress.percent
-                      ? `${progress.percent}%`
-                      : progress.phase === "done"
-                        ? "100%"
-                        : "45%",
-                  }}
-                />
-              </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Esto corre en tu GPU. Mientras más grande el video, más tarda.
-                No cierres la pestaña.
-              </p>
-            </div>
-          )}
-
-          {/* Result */}
-          {resultUrl && status === "done" && (
-            <div className="space-y-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
-                Video escalado {scale}x
-              </span>
-              <div className="border border-[var(--border)] bg-[var(--surface)] p-2">
-                <video
-                  src={resultUrl}
-                  controls
-                  className="max-h-[60vh] w-full object-contain"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Controls */}
-          <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
+          {/* Scale + Actions */}
+          <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
               <span className="text-sm text-[var(--text-muted)]">Escala:</span>
               {[2, 4].map((s) => (
@@ -232,13 +233,13 @@ export function VideoUpscaler() {
                 Limpiar
               </button>
             </div>
-
-            {error && (
-              <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
-                {error}
-              </div>
-            )}
           </div>
+
+          {error && (
+            <div className="border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-2 text-sm text-[var(--danger)]">
+              {error}
+            </div>
+          )}
         </div>
       )}
     </div>
