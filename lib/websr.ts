@@ -4,21 +4,29 @@ import type { NetworkOption } from "@/types";
  * Redes neuronales disponibles para upscaling.
  *
  * WebSR incluye arquitecturas Anime4K (CNN) optimizadas para WebGPU.
- * Los pesos se cargan desde el CDN de katana.video (el del case study de web.dev).
- * Si eso cae, se pueden hostear localmente en /public/weights/.
+ * Los pesos se hostean localmente en /public/weights/ descargados del
+ * repo oficial: https://github.com/sb2702/websr/tree/main/weights/anime4k
+ *
+ * Variantes:
+ *   - an (anime) — optimizado para contenido 2D/animación
+ *   - rl (real life) — optimizado para foto/video real
+ *
+ * Tamaños:
+ *   - l (large) — mejor calidad, más lento. Ideal para imágenes estáticas.
+ *   - s (small) — rápido, buena calidad. Mejor para video.
  */
 export const NETWORKS: NetworkOption[] = [
   {
     name: "anime4k/cnn-2x-l",
     label: "Anime4K CNN-L (2x)",
     description: "Mejor calidad, más lento. Ideal para imágenes estáticas.",
-    weightUrl: "https://katana.video/files/cnn-2x-lg-2d-animation.json",
+    weightUrl: "/weights/cnn-2x-l-an.json",
   },
   {
     name: "anime4k/cnn-2x-s",
     label: "Anime4K CNN-S (2x)",
     description: "Rápido, buena calidad. Mejor para video en tiempo real.",
-    weightUrl: "https://katana.video/files/cnn-2x-s-2d-animation.json",
+    weightUrl: "/weights/cnn-2x-s-an.json",
   },
 ];
 
@@ -44,6 +52,6 @@ export function formatBytes(bytes: number): string {
  * Formatea milisegundos a segundos legibles.
  */
 export function formatMs(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
