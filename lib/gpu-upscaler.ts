@@ -156,7 +156,7 @@ export async function getGPUDevice(): Promise<GPUDevice> {
   deviceCache.lost.then(() => {
     deviceCache = null;
     pipelineCache.clear();
-    sharpenPipeline = null;
+    sharpenPipelineCache.clear();
   });
   return deviceCache;
 }
@@ -165,8 +165,10 @@ export async function getGPUDevice(): Promise<GPUDevice> {
 // Pipeline cache — avoid recreating pipelines
 // ============================================================
 
-const pipelineCache = new Map<UpscaleAlgorithm, GPURenderPipeline>();
-let sharpenPipeline: GPURenderPipeline | null = null;
+// Cache keyed by "algorithm:format" so the same algorithm can have
+// pipelines for different output formats (texture vs canvas).
+const pipelineCache = new Map<string, GPURenderPipeline>();
+const sharpenPipelineCache = new Map<string, GPURenderPipeline>();
 
 function getShaderCode(algorithm: UpscaleAlgorithm): string {
   switch (algorithm) {
@@ -184,8 +186,10 @@ function getShaderCode(algorithm: UpscaleAlgorithm): string {
 function getUpscalePipeline(
   device: GPUDevice,
   algorithm: UpscaleAlgorithm,
+  format: GPUTextureFormat = "rgba8unorm",
 ): GPURenderPipeline {
-  let pipeline = pipelineCache.get(algorithm);
+  const key = `${algorithm}:${format}`;
+  let pipeline = pipelineCache.get(key);
   if (pipeline) return pipeline;
 
   const module = device.createShaderModule({ code: getShaderCode(algorithm) });
@@ -195,29 +199,37 @@ function getUpscalePipeline(
     fragment: {
       module,
       entryPoint: "fs",
-      targets: [{ format: "rgba8unorm" }],
+      targets: [{ format }],
     },
     primitive: { topology: "triangle-list" },
   });
 
-  pipelineCache.set(algorithm, pipeline);
+  pipelineCache.set(key, pipeline);
   return pipeline;
 }
 
-function getSharpenPipeline(device: GPUDevice): GPURenderPipeline {
-  if (sharpenPipeline) return sharpenPipeline;
+function getSharpenPipeline(
+  device: GPUDevice,
+  format: GPUTextureFormat = "rgba8unorm",
+): GPURenderPipeline {
+  const key = format;
+  let pipeline = sharpenPipelineCache.get(key);
+  if (pipeline) return pipeline;
+
   const module = device.createShaderModule({ code: SHARPEN_FS });
-  sharpenPipeline = device.createRenderPipeline({
+  pipeline = device.createRenderPipeline({
     layout: "auto",
     vertex: { module, entryPoint: "vs" },
     fragment: {
       module,
       entryPoint: "fs",
-      targets: [{ format: "rgba8unorm" }],
+      targets: [{ format }],
     },
     primitive: { topology: "triangle-list" },
   });
-  return sharpenPipeline;
+
+  sharpenPipelineCache.set(key, pipeline);
+  return pipeline;
 }
 
 // ============================================================
@@ -449,7 +461,8 @@ export async function gpuUpscaleToCanvas(
   const device = await getGPUDevice();
   const ctx = canvas.getContext("webgpu");
   if (!ctx) throw new Error("No se pudo obtener contexto WebGPU del canvas");
-  ctx.configure({ device, format: "rgba8unorm", alphaMode: "opaque" });
+  const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+  ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
 
   const { w: srcW, h: srcH } = getSourceDims(source);
   const dstW = Math.round(srcW * scale);
@@ -470,19 +483,10 @@ export async function gpuUpscaleToCanvas(
   );
 
   const sampler = createSampler(device, algorithm);
-  const pipeline = getUpscalePipeline(device, algorithm);
-  const bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: srcTex.createView() },
-      { binding: 1, resource: sampler },
-    ],
-  });
-
   const encoder = device.createCommandEncoder();
 
   if (sharpen > 0) {
-    // Upscale → intermediate → sharpen → canvas
+    // Upscale → intermediate (rgba8unorm) → sharpen → canvas (canvasFormat)
     const intermediate = device.createTexture({
       size: [dstW, dstH],
       format: "rgba8unorm",
@@ -490,17 +494,28 @@ export async function gpuUpscaleToCanvas(
         GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
 
+    // Upscale pass writes to intermediate texture (rgba8unorm)
+    const upscalePipeline = getUpscalePipeline(device, algorithm, "rgba8unorm");
+    const upscaleBindGroup = device.createBindGroup({
+      layout: upscalePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: srcTex.createView() },
+        { binding: 1, resource: sampler },
+      ],
+    });
+
     const upscalePass = encoder.beginRenderPass({
       colorAttachments: [
         { view: intermediate.createView(), loadOp: "clear", storeOp: "store" },
       ],
     });
-    upscalePass.setPipeline(pipeline);
-    upscalePass.setBindGroup(0, bindGroup);
+    upscalePass.setPipeline(upscalePipeline);
+    upscalePass.setBindGroup(0, upscaleBindGroup);
     upscalePass.draw(3);
     upscalePass.end();
 
-    const sharpPipeline = getSharpenPipeline(device);
+    // Sharpen pass writes to canvas (canvasFormat)
+    const sharpPipeline = getSharpenPipeline(device, canvasFormat);
     const uniformBuffer = device.createBuffer({
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -539,7 +554,16 @@ export async function gpuUpscaleToCanvas(
     intermediate.destroy();
     uniformBuffer.destroy();
   } else {
-    // Upscale → canvas directly
+    // Upscale → canvas directly (canvasFormat)
+    const upscalePipeline = getUpscalePipeline(device, algorithm, canvasFormat);
+    const bindGroup = device.createBindGroup({
+      layout: upscalePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: srcTex.createView() },
+        { binding: 1, resource: sampler },
+      ],
+    });
+
     const canvasTexture = ctx.getCurrentTexture();
     const upscalePass = encoder.beginRenderPass({
       colorAttachments: [
@@ -550,7 +574,7 @@ export async function gpuUpscaleToCanvas(
         },
       ],
     });
-    upscalePass.setPipeline(pipeline);
+    upscalePass.setPipeline(upscalePipeline);
     upscalePass.setBindGroup(0, bindGroup);
     upscalePass.draw(3);
     upscalePass.end();
