@@ -44,6 +44,7 @@ export function useImageUpscaler({
   const moduleRef = useRef<WebSRModule | null>(null);
   const websrCacheRef = useRef<Map<string, WebSRInstance>>(new Map());
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const outputCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const weightsCacheRef = useRef<Map<string, unknown>>(new Map());
 
   useEffect(() => {
@@ -148,37 +149,50 @@ export function useImageUpscaler({
       const srcWidth = source.width;
       const srcHeight = source.height;
 
+      // Hidden canvas for intermediate passes (also WebGPU — separate from output canvas)
       if (!hiddenCanvasRef.current) hiddenCanvasRef.current = document.createElement("canvas");
       const hidden = hiddenCanvasRef.current;
 
       let currentSource: ImageBitmap | HTMLImageElement = source;
+      let lastCanvas: HTMLCanvasElement = canvas;
 
       for (let i = 0; i < info.passes; i++) {
         const isLastPass = i === info.passes - 1;
+        // Use the main canvas only for the last pass; hidden canvas for intermediate
         const targetCanvas = isLastPass ? canvas : hidden;
 
         await renderPass2x(currentSource, network, targetCanvas);
 
+        lastCanvas = targetCanvas;
         if (isLastPass) break;
         currentSource = await createImageBitmap(targetCanvas);
       }
 
+      let finalW = lastCanvas.width;
+      let finalH = lastCanvas.height;
+
       // Resize final si la escala no es potencia de 2
+      // Use a SEPARATE 2D canvas — never getContext('2d') on the WebGPU canvas
       if (info.needsResize) {
-        const finalW = Math.round(srcWidth * scale);
-        const finalH = Math.round(srcHeight * scale);
-        bilinearResize(canvas, hidden, finalW, finalH);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("No se pudo obtener contexto 2d");
-        canvas.width = finalW;
-        canvas.height = finalH;
-        ctx.drawImage(hidden, 0, 0);
+        finalW = Math.round(srcWidth * scale);
+        finalH = Math.round(srcHeight * scale);
+        if (!outputCanvasRef.current) outputCanvasRef.current = document.createElement("canvas");
+        const resizeCanvas = outputCanvasRef.current;
+        resizeCanvas.width = finalW;
+        resizeCanvas.height = finalH;
+        const rctx = resizeCanvas.getContext("2d", { alpha: false });
+        if (!rctx) throw new Error("No se pudo obtener contexto 2d para resize");
+        rctx.imageSmoothingEnabled = true;
+        rctx.imageSmoothingQuality = "high";
+        rctx.drawImage(lastCanvas, 0, 0, finalW, finalH);
+        const bitmap = await createImageBitmap(resizeCanvas);
+        return { bitmap, width: finalW, height: finalH };
       }
 
-      const bitmap = await createImageBitmap(canvas);
-      return { bitmap, width: canvas.width, height: canvas.height };
+      const bitmap = await createImageBitmap(lastCanvas);
+      return { bitmap, width: finalW, height: finalH };
     },
-    [canvasRef, ensureWebSR, renderPass2x, bilinearResize],
+    [canvasRef, ensureWebSR, renderPass2x],
   );
 
   // ============================================================
@@ -228,10 +242,13 @@ export function useImageUpscaler({
 
         const elapsed = performance.now() - startTime;
 
-        // Convertir a blob via canvas
-        canvas.width = finalW;
-        canvas.height = finalH;
-        const ctx = canvas.getContext("2d", { alpha: false });
+        // Convertir a blob via a SEPARATE 2D canvas — never reuse the WebGPU canvas
+        // because once a canvas has getContext('webgpu'), getContext('2d') returns null.
+        if (!outputCanvasRef.current) outputCanvasRef.current = document.createElement("canvas");
+        const outputCanvas = outputCanvasRef.current;
+        outputCanvas.width = finalW;
+        outputCanvas.height = finalH;
+        const ctx = outputCanvas.getContext("2d", { alpha: false });
         if (!ctx) throw new Error("No se pudo obtener contexto 2d");
         // Fill with white first — JPEGs should never produce transparent PNGs
         ctx.fillStyle = "#ffffff";
@@ -239,7 +256,7 @@ export function useImageUpscaler({
         ctx.drawImage(finalBitmap, 0, 0);
 
         const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(
+          outputCanvas.toBlob(
             (b) => (b ? resolve(b) : reject(new Error("No se pudo generar la imagen"))),
             "image/png",
           );
