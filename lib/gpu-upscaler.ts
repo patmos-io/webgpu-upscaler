@@ -349,7 +349,11 @@ async function gpuUpscaleImageImpl(
   const srcTex = device.createTexture({
     size: [srcW, srcH],
     format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    // copyExternalImageToTexture requires RENDER_ATTACHMENT on the destination
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
   device.queue.copyExternalImageToTexture(
     { source, flipY: false },
@@ -454,7 +458,17 @@ async function gpuUpscaleImageImpl(
   finalTex.destroy();
   if (uniformBuffer) uniformBuffer.destroy();
 
-  // --- Verify result is not all-black (GPU validation errors silently produce black) ---
+  // Pop error scopes BEFORE the all-black check: a validation error must
+  // surface with its real message, not as a generic "empty output" throw.
+  for (let i = 0; i < 3; i++) {
+    const gpuError = await device.popErrorScope();
+    if (gpuError) {
+      console.error("[GPU] Error scope:", gpuError.message);
+      throw new Error(`GPU error: ${gpuError.message}`);
+    }
+  }
+
+  // --- Verify result is not all-black (defense-in-depth for silent GPU issues) ---
   // Check RGB only — alpha is now always 1.0 (forced in shaders)
   const verifyCanvas = document.createElement("canvas");
   verifyCanvas.width = Math.min(dstW, 64);
@@ -473,15 +487,6 @@ async function gpuUpscaleImageImpl(
     if (!hasContent) {
       console.warn("[GPU] Shader produced all-black texture, falling back to canvas 2D");
       throw new Error("GPU shader produced empty output");
-    }
-  }
-
-  // Pop error scopes — if any errors occurred, they surface here
-  for (let i = 0; i < 3; i++) {
-    const gpuError = await device.popErrorScope();
-    if (gpuError) {
-      console.error("[GPU] Error scope:", gpuError.message);
-      throw new Error(`GPU error: ${gpuError.message}`);
     }
   }
 
@@ -551,6 +556,10 @@ async function canvas2DUpscale(
 // Public API — Video/canvas upscaling (render directly to canvas)
 // ============================================================
 
+// Canvases whose WebGPU context is already configured — reconfiguring or
+// resizing every frame tears down the swapchain and destroys throughput.
+const configuredCanvases = new WeakSet<HTMLCanvasElement>();
+
 /**
  * Upscales a video frame or image to a WebGPU canvas.
  * Renders directly to the canvas — no buffer readback, faster for video.
@@ -572,19 +581,28 @@ export async function gpuUpscaleToCanvas(
   const ctx = canvas.getContext("webgpu");
   if (!ctx) throw new Error("Failed to get WebGPU context from canvas");
   const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-  ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
 
   const { w: srcW, h: srcH } = getSourceDims(source);
   const dstW = Math.round(srcW * scale);
   const dstH = Math.round(srcH * scale);
-  canvas.width = dstW;
-  canvas.height = dstH;
+  if (canvas.width !== dstW || canvas.height !== dstH) {
+    canvas.width = dstW;
+    canvas.height = dstH;
+  }
+  if (!configuredCanvases.has(canvas)) {
+    ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
+    configuredCanvases.add(canvas);
+  }
 
   // Source texture
   const srcTex = device.createTexture({
     size: [srcW, srcH],
     format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    // copyExternalImageToTexture requires RENDER_ATTACHMENT on the destination
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
   device.queue.copyExternalImageToTexture(
     { source, flipY: false },
