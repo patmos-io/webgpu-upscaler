@@ -8,15 +8,15 @@ import type { ScaleFactor, UpscaleAlgorithm, AlgorithmInfo } from "@/types";
 interface ScaleControlProps {
   scale: ScaleFactor;
   onScaleChange: (scale: ScaleFactor) => void;
-  /** Dimensiones originales para mostrar advertencias de GPU memory */
+  /** Source dimensions for GPU memory warnings */
   sourceDims?: { w: number; h: number } | null;
-  /** Algoritmo seleccionado */
+  /** Selected algorithm */
   algorithm: UpscaleAlgorithm;
   onAlgorithmChange: (a: UpscaleAlgorithm) => void;
-  /** Cantidad de sharpening 0-2 */
+  /** Sharpening amount 0-2 */
   sharpen: number;
   onSharpenChange: (s: number) => void;
-  /** Presets rápidos */
+  /** Quick presets */
   presets?: number[];
   min?: number;
   max?: number;
@@ -45,14 +45,14 @@ export function ScaleControl({
     if (!sourceDims) return null;
     const outPixels = sourceDims.w * sourceDims.h * scale * scale;
     const estMB = (outPixels * 16) / (1024 * 1024);
-    if (estMB > 512) return "Puede saturar la GPU. Riesgo de crash en GPU integrada.";
-    if (estMB > 256) return "Alto consumo de GPU memory. Monitoreá el rendimiento.";
+    if (estMB > 512) return "May saturate the GPU. Risk of crash on integrated GPUs.";
+    if (estMB > 256) return "High GPU memory usage. Monitor performance.";
     return null;
   }, [sourceDims, scale]);
 
-  // Sharpening solo aplica a algoritmos no-AI
+  // Sharpening only applies to non-AI algorithms
   const showSharpen = algorithm !== "ai";
-  // Quality tier solo aplica a AI
+  // Quality tier only applies to AI
   const showQualityTier = algorithm === "ai";
 
   const algoList: AlgorithmInfo[] = Object.values(ALGORITHMS);
@@ -61,7 +61,7 @@ export function ScaleControl({
     <div className="flex flex-col gap-3">
       {/* Algorithm selector */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-[var(--text-muted)] shrink-0">Algoritmo:</span>
+        <span className="text-sm text-[var(--text-muted)] shrink-0">Algorithm:</span>
         {algoList.map((a) => (
           <button
             key={a.id}
@@ -85,7 +85,7 @@ export function ScaleControl({
 
       {/* Scale row */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-[var(--text-muted)] shrink-0">Escala:</span>
+        <span className="text-sm text-[var(--text-muted)] shrink-0">Scale:</span>
 
         {/* Presets */}
         <div className="flex items-center gap-1.5">
@@ -104,7 +104,7 @@ export function ScaleControl({
           ))}
         </div>
 
-        {/* Slider custom */}
+        {/* Custom slider */}
         <div className="flex items-center gap-2 flex-1 min-w-[120px]">
           <input
             type="range"
@@ -114,7 +114,7 @@ export function ScaleControl({
             value={scale}
             onChange={(e) => onScaleChange(parseFloat(e.target.value))}
             className="flex-1"
-            aria-label="Escala personalizada"
+            aria-label="Custom scale"
           />
           <input
             type="number"
@@ -127,7 +127,7 @@ export function ScaleControl({
               if (!isNaN(v) && v >= 1 && v <= max) onScaleChange(v);
             }}
             className="w-16 bg-[var(--surface-2)] border border-[var(--border)] px-2 py-1 text-sm font-mono text-center text-[var(--text)] focus:border-[var(--accent)] focus:outline-none"
-            aria-label="Valor de escala"
+            aria-label="Scale value"
           />
         </div>
       </div>
@@ -135,7 +135,7 @@ export function ScaleControl({
       {/* Sharpening control (only for non-AI) */}
       {showSharpen && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-[var(--text-muted)] shrink-0">Nitidez:</span>
+          <span className="text-sm text-[var(--text-muted)] shrink-0">Sharpen:</span>
           <input
             type="range"
             min={0}
@@ -144,7 +144,7 @@ export function ScaleControl({
             value={sharpen}
             onChange={(e) => onSharpenChange(parseFloat(e.target.value))}
             className="flex-1 max-w-[180px]"
-            aria-label="Nitidez"
+            aria-label="Sharpening"
           />
           <span className="font-mono text-xs text-[var(--text-muted)] w-8 text-center">
             {sharpen.toFixed(1)}
@@ -175,8 +175,8 @@ export function ScaleControl({
               {quality.label}
             </span>
             <span className="text-[var(--text-muted)]">
-              {info.passes} {info.passes === 1 ? "pasada" : "pasadas"} de 2x
-              {info.needsResize ? ` + resize a ${scale}x` : ""}
+              {info.passes} {info.passes === 1 ? "pass" : "passes"} of 2x
+              {info.needsResize ? ` + resize to ${scale}x` : ""}
             </span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">{quality.description}</p>

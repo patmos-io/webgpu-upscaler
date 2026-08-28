@@ -1,32 +1,32 @@
 import type { NetworkOption, ContentMode, ScaleInfo, QualityTier, QualityInfo } from "@/types";
 
 /**
- * Redes neuronales disponibles para upscaling.
+ * Neural networks available for upscaling.
  *
- * WebSR incluye arquitecturas Anime4K (CNN) optimizadas para WebGPU.
- * Los pesos se hostean localmente en /public/weights/ descargados del
- * repo oficial: https://github.com/sb2702/websr/tree/main/weights/anime4k
+ * WebSR includes Anime4K (CNN) architectures optimized for WebGPU.
+ * Weights are hosted locally in /public/weights/ downloaded from the
+ * official repo: https://github.com/sb2702/websr/tree/main/weights/anime4k
  *
- * Variantes:
- *   - an (anime) — optimizado para contenido 2D/animación
- *   - rl (real life) — optimizado para foto/video real
+ * Variants:
+ *   - an (anime) — optimized for 2D/animation content
+ *   - rl (real life) — optimized for real photos/video
  *
- * Tamaños:
- *   - l (large) — mejor calidad, más lento. Ideal para imágenes estáticas.
- *   - s (small) — rápido, buena calidad. Mejor para video.
+ * Sizes:
+ *   - l (large) — best quality, slower. Ideal for static images.
+ *   - s (small) — fast, good quality. Better for video.
  */
 export const NETWORKS: Record<ContentMode, NetworkOption[]> = {
   anime: [
     {
       name: "anime4k/cnn-2x-l",
       label: "Anime4K CNN-L (2x)",
-      description: "Mejor calidad, más lento. Ideal para imágenes estáticas.",
+      description: "Best quality, slower. Ideal for static images.",
       weightUrl: "/weights/cnn-2x-l-an.json",
     },
     {
       name: "anime4k/cnn-2x-s",
       label: "Anime4K CNN-S (2x)",
-      description: "Rápido, buena calidad. Mejor para video en tiempo real.",
+      description: "Fast, good quality. Better for real-time video.",
       weightUrl: "/weights/cnn-2x-s-an.json",
     },
   ],
@@ -34,51 +34,51 @@ export const NETWORKS: Record<ContentMode, NetworkOption[]> = {
     {
       name: "anime4k/cnn-2x-l",
       label: "RealLife CNN-L (2x)",
-      description: "Mejor calidad para fotos. Más lento.",
+      description: "Best quality for photos. Slower.",
       weightUrl: "/weights/cnn-2x-l-rl.json",
     },
     {
       name: "anime4k/cnn-2x-s",
       label: "RealLife CNN-S (2x)",
-      description: "Rápido para video real. Buena calidad.",
+      description: "Fast for real video. Good quality.",
       weightUrl: "/weights/cnn-2x-s-rl.json",
     },
   ],
 };
 
 /**
- * Devuelve la red adecuada según el modo de contenido.
+ * Returns the appropriate network for the given content mode.
  */
 export function getNetwork(mode: ContentMode, fast: boolean): NetworkOption {
   return NETWORKS[mode][fast ? 1 : 0];
 }
 
 /**
- * Verifica si el navegador soporta WebGPU.
- * No se puede llamar en SSR — solo desde useEffect.
+ * Checks whether the browser supports WebGPU.
+ * Cannot be called during SSR — only from useEffect.
  */
 export function isWebGPUSupported(): boolean {
   return typeof navigator !== "undefined" && "gpu" in navigator;
 }
 
 /**
- * Calcula la estructura de pasadas para una escala arbitraria.
+ * Calculates the pass structure for an arbitrary scale.
  *
- * La red neural solo sabe hacer 2x. Para escalas mayores se aplica en cascada:
- *   - 2x → 1 pasada (2x)
- *   - 4x → 2 pasadas (2x → 2x)
- *   - 8x → 3 pasadas (2x → 2x → 2x)
- *   - 3x → 2 pasadas (2x → 2x = 4x) + resize a 3x
- *   - 6x → 3 pasadas (2x → 2x → 2x = 8x) + resize a 6x
+ * The neural network can only do 2x. For larger scales it's applied in cascade:
+ *   - 2x → 1 pass (2x)
+ *   - 4x → 2 passes (2x → 2x)
+ *   - 8x → 3 passes (2x → 2x → 2x)
+ *   - 3x → 2 passes (2x → 2x = 4x) + resize to 3x
+ *   - 6x → 3 passes (2x → 2x → 2x = 8x) + resize to 6x
  *
- * Cada pasada duplica el consumo de GPU memory y suma tiempo.
+ * Each pass doubles GPU memory consumption and adds time.
  */
 export function getScaleInfo(scale: number): ScaleInfo {
   if (scale <= 1) {
     return { passes: 0, aiScale: 1, needsResize: false, tier: "optimal" };
   }
 
-  // Redondear hacia arriba a la potencia de 2 más cercana
+  // Round up to the nearest power of 2
   const passes = Math.ceil(Math.log2(scale));
   const aiScale = Math.pow(2, passes);
   const needsResize = aiScale !== scale;
@@ -99,24 +99,24 @@ export function getScaleInfo(scale: number): ScaleInfo {
 
 const qualityInfo: Record<QualityTier, QualityInfo> = {
   optimal: {
-    label: "Óptimo",
+    label: "Optimal",
     color: "var(--success)",
-    description: "1 pasada de la red neural. Calidad nativa, sin artefactos.",
+    description: "1 neural network pass. Native quality, no artifacts.",
   },
   good: {
-    label: "Bueno",
+    label: "Good",
     color: "var(--accent)",
-    description: "2 pasadas en cascada. Artefactos mínimos. Recomendado para 4x.",
+    description: "2 cascaded passes. Minimal artifacts. Recommended for 4x.",
   },
   acceptable: {
-    label: "Aceptable",
+    label: "Acceptable",
     color: "#e89d3d",
-    description: "3 pasadas. La red inventa detalles. Puede haber artefactos en texturas complejas.",
+    description: "3 passes. The network invents detail. May produce artifacts on complex textures.",
   },
   extreme: {
-    label: "Extremo",
+    label: "Extreme",
     color: "var(--danger)",
-    description: "4+ pasadas. Alto riesgo de artefactos y saturación de GPU. Experimental.",
+    description: "4+ passes. High risk of artifacts and GPU saturation. Experimental.",
   },
 };
 
@@ -125,7 +125,7 @@ export function getQualityInfo(tier: QualityTier): QualityInfo {
 }
 
 /**
- * Formatea bytes a una unidad legible.
+ * Formats bytes to a human-readable unit.
  */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -135,7 +135,7 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Formatea milisegundos a segundos legibles.
+ * Formats milliseconds to a human-readable time.
  */
 export function formatMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;

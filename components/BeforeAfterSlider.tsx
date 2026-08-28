@@ -15,7 +15,7 @@ export function BeforeAfterSlider({
   beforeUrl,
   afterUrl,
   beforeLabel = "Original",
-  afterLabel = "Escalado",
+  afterLabel = "Upscaled",
   beforeDims,
   afterDims,
 }: BeforeAfterSliderProps) {

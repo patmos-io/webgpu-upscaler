@@ -1,63 +1,63 @@
 # WebGPU Upscaler
 
-Upscaling de imágenes con WebGPU. 100% client-side, 100% gratis, cero costos de servidor.
+Image upscaling with WebGPU. 100% client-side, 100% free, zero server costs.
 
-La red neural corre en la GPU del usuario via WebGPU. El contenido nunca se sube a un servidor.
+The neural network runs on the user's GPU via WebGPU. Content never leaves the browser.
 
 **Live:** https://webgpu-upscaler.vercel.app
 
 ---
 
-## Por qué WebGPU
+## Why WebGPU
 
-Existen tres formas de escalar video/imagen de 720p a 4K con GPU en tiempo real. Esta app implementa la tercera:
+There are three ways to scale video/images from 720p to 4K with a GPU in real time. This app implements the third:
 
-| Arquitectura | Dónde corre | Requiere | Costo server | Ejemplo real |
+| Architecture | Where it runs | Requires | Server cost | Real-world example |
 |---|---|---|---|---|
-| **RTX VSR** | GPU dedicada del viewer (RTX 30/40) | Hardware NVIDIA + Chrome/Edge | $0 | YouTube, Netflix |
-| **NVIDIA Maxine** | Cloud GPU (Kubernetes) | Infra GPU en backend | $$ | Videoconferencia a escala |
-| **WebGPU + WebSR** | Browser del usuario (cualquier GPU) | Browser moderno | $0 | Twitch, esta app |
+| **RTX VSR** | Viewer's dedicated GPU (RTX 30/40) | NVIDIA hardware + Chrome/Edge | $0 | YouTube, Netflix |
+| **NVIDIA Maxine** | Cloud GPU (Kubernetes) | GPU infra in backend | $$ | Video conferencing at scale |
+| **WebGPU + WebSR** | User's browser (any GPU) | Modern browser | $0 | Twitch, this app |
 
-WebGPU es la pieza que democratiza el upscaling AI: corre en cualquier GPU del browser (no requiere RTX), no requiere install, y no tiene costo de servidor. Twitch ya lo usa en producción a 60fps.
+WebGPU is the piece that democratizes AI upscaling: it runs on any GPU in the browser (no RTX required), needs no install, and has zero server cost. Twitch already uses it in production at 60fps.
 
-### El insight de bandwidth
+### The bandwidth insight
 
-Transmitir menos resolución y hacer upscale local ahorra bandwidth real:
-- 720p→1080p AI upscale: **45-55% bandwidth savings**
-- 540p→1080p AI upscale: **60-70% bandwidth savings**
-- SimaBit en producción: **22% bitrate ↓ + 4.2 VMAF points**
+Transmitting a lower resolution and upscaling locally saves real bandwidth:
+- 720p→1080p AI upscale: **45–55% bandwidth savings**
+- 540p→1080p AI upscale: **60–70% bandwidth savings**
+- SimaBit in production: **22% bitrate ↓ + 4.2 VMAF points**
 
-Para una app de upscaling de imágenes, el cómputo 100% client-side significa que el único costo es bandwidth estático (HTML/JS/weights) — cubierto por el free tier de Vercel.
+For an image upscaling app, 100% client-side compute means the only cost is static bandwidth (HTML/JS/weights) — covered by Vercel's free tier.
 
 ---
 
 ## Stack
 
 - **Next.js 16** — App Router, static export
-- **WebSR SDK** (`@websr/websr@0.0.15`) — red neural Anime4K CNN, WebGPU compute shaders
-- **WGSL shaders custom** — Lanczos-3, Bicubic (Catmull-Rom), Nearest
-- **Tailwind CSS 4** — estilos
-- **Vercel free tier** — deploy estático, cero serverless functions
+- **WebSR SDK** (`@websr/websr@0.0.15`) — Anime4K CNN neural network, WebGPU compute shaders
+- **Custom WGSL shaders** — Lanczos-3, Bicubic (Catmull-Rom), Nearest
+- **Tailwind CSS 4** — styling
+- **Vercel free tier** — static deploy, zero serverless functions
 
-## Algoritmos
+## Algorithms
 
-| Algoritmo | Tipo | Calidad | Velocidad |
+| Algorithm | Type | Quality | Speed |
 |---|---|---|---|
-| **AI (Anime4K)** | CNN super-resolution (WebSR SDK) | Mejor — inventa detalle | Más lento |
-| **Lanczos-3** | Interpolación con ventana sinc de 6 taps | Muy bueno | Rápido |
-| **Bicubic** | Catmull-Rom | Balanceado | Muy rápido |
-| **Nearest** | Replicación de píxeles | Bajo | Instantáneo |
+| **AI (Anime4K)** | CNN super-resolution (WebSR SDK) | Best — hallucinates detail | Slower |
+| **Lanczos-3** | Interpolation with 6-tap sinc window | Very good | Fast |
+| **Bicubic** | Catmull-Rom | Balanced | Very fast |
+| **Nearest** | Pixel replication | Low | Instant |
 
-Escalas disponibles: 2x, 4x, 8x (cascada de pasadas 2x).
+Available scales: 2x, 4x, 8x (cascade of 2x passes).
 
-## Cómo funciona
+## How it works
 
-1. El usuario sube una imagen (drag & drop o file input).
-2. `createImageBitmap()` genera un bitmap desde el archivo.
-3. La imagen se convierte a GPU texture (`rgba8unorm`).
-4. El algoritmo seleccionado corre como WebGPU compute/render shader (o WebSR CNN para AI).
-5. El resultado se lee del GPU → `ImageBitmap` → canvas 2D → PNG descargable.
-6. Para 4x/8x, se aplican pasadas 2x consecutivas (cascada).
+1. The user uploads an image (drag & drop or file input).
+2. `createImageBitmap()` creates a bitmap from the file.
+3. The image is converted to a GPU texture (`rgba8unorm`).
+4. The selected algorithm runs as a WebGPU compute/render shader (or WebSR CNN for AI).
+5. The result is read back from the GPU → `ImageBitmap` → 2D canvas → downloadable PNG.
+6. For 4x/8x, consecutive 2x passes are applied (cascading).
 
 ```
 [Upload] → ImageBitmap → GPU texture (rgba8unorm)
@@ -66,46 +66,46 @@ Escalas disponibles: 2x, 4x, 8x (cascada de pasadas 2x).
   → BeforeAfterSlider (clip-path comparison)
 ```
 
-## Requisitos del navegador
+## Browser requirements
 
-- Chrome 113+, Edge 113+, o cualquier browser con WebGPU habilitado
-- La app detecta WebGPU y muestra fallback si no está disponible
+- Chrome 113+, Edge 113+, or any browser with WebGPU enabled
+- The app detects WebGPU and shows a fallback if unavailable
 
-## Desarrollo
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Deploy a Vercel (gratis)
+## Deploy to Vercel (free)
 
 ```bash
 npm i -g vercel
 vercel --prod
 ```
 
-Como todo el cómputo es client-side, no hay límite de serverless function execution ni costos de compute. El único costo es bandwidth estático, cubierto por el free tier.
+Since all compute is client-side, there are no serverless function execution limits or compute costs. The only cost is static bandwidth, covered by the free tier.
 
 ---
 
-## Aprendizajes técnicos (hard rules)
+## Technical lessons (hard rules)
 
-Esta sección documenta los bugs que encontramos construyendo esta app. Cada uno tomó horas de debuggear. Si vas a construir algo con WebGPU, leé esto primero.
+This section documents bugs we hit while building this app. Each one took hours to debug. If you're building something with WebGPU, read this first.
 
-### 1. Un canvas solo puede tener un tipo de contexto
+### 1. A canvas can only have one context type
 
-Un `<canvas>` HTML solo puede tener **un tipo de contexto** — una vez que llamas `getContext('webgpu')`, `getContext('2d')` devuelve `null` (y viceversa).
+An HTML `<canvas>` can only have **one context type** — once you call `getContext('webgpu')`, `getContext('2d')` returns `null` (and vice versa).
 
-**El bug:** El WebSR SDK hace `canvas.getContext('webgpu')` internamente. Pero el mismo canvas ya tenía `getContext('2d')` para generar el PNG de output. El modo AI crasheaba con "Unable to load WebGPU context".
+**The bug:** The WebSR SDK calls `canvas.getContext('webgpu')` internally. But the same canvas already had `getContext('2d')` for PNG output generation. AI mode crashed with "Unable to load WebGPU context".
 
-**Fix:** Canvas separado. Uno exclusivo para WebGPU (WebSR), otro (`document.createElement('canvas')`) para 2D (PNG generation).
+**Fix:** Use separate canvases. One exclusively for WebGPU (WebSR), another (`document.createElement('canvas')`) for 2D (PNG generation).
 
-### 2. Forzar alpha=1.0 en shaders WGSL
+### 2. Force alpha=1.0 in WGSL shaders
 
-Los JPEGs no tienen alpha. Cuando se convierten a `rgba8unorm` GPU textures, el canal alpha queda en 0. Si el shader preserva el alpha original, el PNG de output es transparente (invisible).
+JPEGs have no alpha channel. When converted to `rgba8unorm` GPU textures, the alpha channel is 0. If the shader preserves the original alpha, the output PNG is transparent (invisible).
 
-**Fix:** Todos los fragment shaders deben forzar alpha=1.0:
+**Fix:** All fragment shaders must force alpha=1.0:
 
 ```wgsl
 // WRONG — preserves alpha=0 from JPEGs
@@ -115,13 +115,13 @@ return c / wt;
 return vec4f((c / wt).rgb, 1.0);
 ```
 
-Además, el canvas 2D debe usar `{ alpha: false }` y llenarse de blanco antes de drawImage.
+Additionally, the 2D canvas must use `{ alpha: false }` and be filled with white before drawImage.
 
-### 3. Detección de all-black debe chequear RGB, no alpha
+### 3. All-black detection must check RGB, not alpha
 
-Después de forzar alpha=1.0, la verificación de "¿el output es todo negro?" chequeaba `alpha > 0`. Como alpha ahora siempre es 255, el check siempre pasaba — el fallback de canvas 2D nunca se activaba, y el usuario veía negro.
+After forcing alpha=1.0, the "is the output all black?" check was reading `alpha > 0`. Since alpha is now always 255, the check always passed — the canvas 2D fallback never triggered, and the user saw black.
 
-**Fix:** Chequear solo RGB:
+**Fix:** Check RGB only:
 
 ```typescript
 // WRONG — alpha is always 255 now
@@ -131,11 +131,11 @@ if (sample[i] > 0 || sample[i+1] > 0 || sample[i+2] > 0 || sample[i+3] > 0)
 if (sample[i] > 0 || sample[i+1] > 0 || sample[i+2] > 0)
 ```
 
-### 4. Errores de WebGPU son silenciosos
+### 4. WebGPU errors are silent
 
-Los errores de validación de GPU no throwean excepciones de JavaScript. El shader produce una textura negra silenciosamente.
+GPU validation errors don't throw JavaScript exceptions. The shader silently produces a black texture.
 
-**Fix:** Usar error scopes:
+**Fix:** Use error scopes:
 
 ```typescript
 device.pushErrorScope('validation');
@@ -148,9 +148,9 @@ for (let i = 0; i < 3; i++) {
 }
 ```
 
-### 5. Siempre implementar fallback de canvas 2D
+### 5. Always implement a canvas 2D fallback
 
-Los shaders WGSL custom pueden producir output negro en algunos GPUs (root cause no diagnosticado — posiblemente `textureSample` o `copyExternalImageToTexture` con JPEGs). Un fallback de canvas 2D (upscaling bilinear del browser) siempre funciona:
+Custom WGSL shaders can produce black output on some GPUs (root cause undiagnosed — possibly `textureSample` or `copyExternalImageToTexture` with JPEGs). A canvas 2D fallback (browser bilinear upscaling) always works:
 
 ```typescript
 try {
@@ -161,19 +161,19 @@ try {
 }
 ```
 
-### 6. Hostear pesos de modelos localmente
+### 6. Host model weights locally
 
-WebSR SDK intenta fetchear pesos de `katana.video` (CDN externo). Esos URLs devolvían 404 → el modo AI crasheaba.
+The WebSR SDK tries to fetch weights from `katana.video` (external CDN). Those URLs returned 404 → AI mode crashed.
 
-**Fix:** Descargar los pesos a `/public/weights/` y referenciarlos como paths locales:
+**Fix:** Download weights to `/public/weights/` and reference them as local paths:
 
 ```typescript
 weightUrl: '/weights/cnn-2x-l-rl.json'  // local, not https://katana.video/...
 ```
 
-### 7. Submit del encoder antes del readback
+### 7. Submit the encoder before readback
 
-El render encoder debe submitearse al queue **antes** de copiar la textura a buffer para lectura:
+The render encoder must be submitted to the queue **before** copying the texture to a buffer for readback:
 
 ```typescript
 // WRONG — readback before submit
@@ -188,9 +188,9 @@ device.queue.submit([readEncoder.finish()]);
 await buffer.mapAsync(GPUMapMode.READ);
 ```
 
-### 8. 256-byte row alignment en texture readback
+### 8. 256-byte row alignment in texture readback
 
-WebGPU requiere que las filas del buffer estén alineadas a 256 bytes. Sin padding, la imagen queda corrompida (sesgada/garbled):
+WebGPU requires buffer rows to be aligned to 256 bytes. Without padding, the image becomes corrupted (skewed/garbled):
 
 ```typescript
 const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
@@ -204,7 +204,7 @@ for (let y = 0; y < height; y++) {
 
 ---
 
-## Estructura del proyecto
+## Project structure
 
 ```
 webgpu-upscaler/
@@ -225,19 +225,19 @@ webgpu-upscaler/
 
 ---
 
-## Fuentes y research
+## Sources & research
 
-Este proyecto se basó en investigación sobre GPU upscaling en tiempo real. Las tecnologías de referencia:
+This project is based on research into real-time GPU upscaling. Reference technologies:
 
-- [NVIDIA RTX Video Super Resolution](https://blogs.nvidia.com/blog/rtx-video-super-resolution/) — upscaling AI client-side para RTX 30/40
-- [NVIDIA Maxine](https://docs.nvidia.com/maxine/vfx/latest/Filters/Upscale.html) — upscaling server-side en cloud GPU
-- [Twitch WebGPU talk](https://www.youtube.com/watch?v=CozLYpZ5i1c) — CNN en WebGPU a 60fps en producción
-- [Free AI Video Upscaler case study](https://web.dev/case-studies/ai-video-upscaler-case-study) — 30,000 hrs/mes procesadas a $0 server cost
-- [WebSR SDK](https://esm.sh/@websr/websr@0.0.15) — Anime4K CNN models para WebGPU
-- [RT4KSR](https://briancohn.com/2025/11/01/image-upscaling-sota/) — primer real-time 4K super-res, 60-120fps consumer GPU
-- [VPEG (2025)](https://briancohn.com/2025/11/01/image-upscaling-sota/) — calidad Real-ESRGAN con 17.6% del budget computacional
-- [AMD REAPPEAR](https://www.amd.com/en/developer/resources/technical-articles/2025/real-time-edge-optimized-ai-powered-parallel-pixel-upscaling-eng.html) — real-time en NPU+iGPU de Ryzen AI
+- [NVIDIA RTX Video Super Resolution](https://blogs.nvidia.com/blog/rtx-video-super-resolution/) — client-side AI upscaling for RTX 30/40
+- [NVIDIA Maxine](https://docs.nvidia.com/maxine/vfx/latest/Filters/Upscale.html) — server-side upscaling on cloud GPU
+- [Twitch WebGPU talk](https://www.youtube.com/watch?v=CozLYpZ5i1c) — CNN in WebGPU at 60fps in production
+- [Free AI Video Upscaler case study](https://web.dev/case-studies/ai-video-upscaler-case-study) — 30,000 hrs/month processed at $0 server cost
+- [WebSR SDK](https://esm.sh/@websr/websr@0.0.15) — Anime4K CNN models for WebGPU
+- [RT4KSR](https://briancohn.com/2025/11/01/image-upscaling-sota/) — first real-time 4K super-res, 60–120fps consumer GPU
+- [VPEG (2025)](https://briancohn.com/2025/11/01/image-upscaling-sota/) — Real-ESRGAN quality with 17.6% of the compute budget
+- [AMD REAPPEAR](https://www.amd.com/en/developer/resources/technical-articles/2025/real-time-edge-optimized-ai-powered-parallel-pixel-upscaling-eng.html) — real-time on NPU+iGPU of Ryzen AI
 
-## Licencia
+## License
 
 MIT

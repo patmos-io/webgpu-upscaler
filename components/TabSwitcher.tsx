@@ -14,7 +14,7 @@ export function TabSwitcher({ active, onChange }: TabSwitcherProps) {
     <div
       className="flex gap-1 border-b border-[var(--border)]"
       role="tablist"
-      aria-label="Modo de upscaling"
+      aria-label="Upscaling mode"
     >
       <button
         role="tab"
@@ -26,7 +26,7 @@ export function TabSwitcher({ active, onChange }: TabSwitcherProps) {
             : "text-[var(--text-muted)] hover:text-[var(--text)]"
         }`}
       >
-        Imagen
+        Image
       </button>
       <button
         role="tab"

@@ -149,9 +149,9 @@ let deviceCache: GPUDevice | null = null;
 
 export async function getGPUDevice(): Promise<GPUDevice> {
   if (deviceCache) return deviceCache;
-  if (!navigator.gpu) throw new Error("WebGPU no disponible");
+  if (!navigator.gpu) throw new Error("WebGPU is not available");
   const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) throw new Error("No se encontró GPU adapter");
+  if (!adapter) throw new Error("No GPU adapter found");
   deviceCache = await adapter.requestDevice();
   deviceCache.lost.then(() => {
     deviceCache = null;
@@ -506,7 +506,7 @@ async function canvas2DUpscale(
   canvas.width = dstW;
   canvas.height = dstH;
   const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+  if (!ctx) throw new Error("Failed to get 2D context");
 
   // Fill white first — JPEGs should never produce transparent PNGs
   ctx.fillStyle = "#ffffff";
@@ -570,7 +570,7 @@ export async function gpuUpscaleToCanvas(
 ): Promise<void> {
   const device = await getGPUDevice();
   const ctx = canvas.getContext("webgpu");
-  if (!ctx) throw new Error("No se pudo obtener contexto WebGPU del canvas");
+  if (!ctx) throw new Error("Failed to get WebGPU context from canvas");
   const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
   ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
 

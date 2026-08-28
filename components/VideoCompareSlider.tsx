@@ -13,7 +13,7 @@ export function VideoCompareSlider({
   beforeUrl,
   afterUrl,
   beforeLabel = "Original",
-  afterLabel = "Escalado",
+  afterLabel = "Upscaled",
 }: VideoCompareSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const beforeRef = useRef<HTMLVideoElement>(null);

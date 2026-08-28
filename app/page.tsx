@@ -15,7 +15,7 @@ export default function Home() {
         <div className="flex items-center justify-between px-6 py-3 lg:px-8">
           <div className="flex items-baseline gap-3">
             <h1 className="text-base font-semibold tracking-tight">
-              GPU Upscaler
+              WebGPU Upscaler
             </h1>
             <span className="font-mono text-xs text-[var(--text-muted)]">
               WebGPU · client-side
@@ -37,9 +37,9 @@ export default function Home() {
         {/* Intro — compact, one line */}
         <div className="shrink-0">
           <h2 className="text-xl font-semibold leading-tight tracking-tight lg:text-2xl">
-            Escalá imágenes y video con tu GPU.{" "}
+            Scale images and video with your GPU.{" "}
             <span className="text-[var(--text-muted)] font-normal">
-              Gratis, sin servidor, sin upload.
+              Free, no server, no upload.
             </span>
           </h2>
         </div>
@@ -56,11 +56,10 @@ export default function Home() {
         {/* Footer — slim */}
         <footer className="shrink-0 flex items-center justify-between text-xs text-[var(--text-muted)] py-1">
           <p>
-            Todo el procesamiento ocurre en tu GPU local. Cero costos de
-            servidor.
+            All processing happens on your local GPU. Zero server costs.
           </p>
           <p className="font-mono hidden sm:block">
-            $0.00/mes · 0 bytes subidos · ∞ escalados
+            $0.00/mo · 0 bytes uploaded · ∞ upscales
           </p>
         </footer>
       </main>

@@ -8,12 +8,12 @@ import { VideoCompareSlider } from "@/components/VideoCompareSlider";
 import { ScaleControl } from "@/components/ScaleControl";
 
 const phaseLabels: Record<string, string> = {
-  demuxing: "Leyendo video",
-  decoding: "Decodificando frames",
+  demuxing: "Reading video",
+  decoding: "Decoding frames",
   upscaling: "Upscaling frames",
-  encoding: "Codificando resultado",
-  muxing: "Generando MP4",
-  done: "Listo",
+  encoding: "Encoding result",
+  muxing: "Generating MP4",
+  done: "Done",
 };
 
 export function VideoUpscaler() {
@@ -98,10 +98,10 @@ export function VideoUpscaler() {
             </svg>
             <div>
               <p className="text-sm font-medium text-[var(--text)]">
-                Arrastrá un video o hacé clic para subir
+                Drag a video here or click to upload
               </p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                MP4, WebM — se procesa con WebCodecs + WebGPU
+                MP4, WebM — processed with WebCodecs + WebGPU
               </p>
             </div>
           </label>
@@ -109,15 +109,15 @@ export function VideoUpscaler() {
           <div className="shrink-0 grid grid-cols-3 gap-4 text-xs">
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">01</span>
-              <p className="text-[var(--text-muted)]">Subís un video. Se procesa 100% en tu navegador.</p>
+              <p className="text-[var(--text-muted)]">Upload a video. Processed 100% in your browser.</p>
             </div>
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">02</span>
-              <p className="text-[var(--text-muted)]">Frame por frame se escala en tu GPU via WebGPU.</p>
+              <p className="text-[var(--text-muted)]">Frame by frame, it's scaled on your GPU via WebGPU.</p>
             </div>
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">03</span>
-              <p className="text-[var(--text-muted)]">Descargás el MP4 escalado. Sin upload, sin servidor.</p>
+              <p className="text-[var(--text-muted)]">Download the upscaled MP4. No upload, no server.</p>
             </div>
           </div>
         </div>
@@ -131,11 +131,11 @@ export function VideoUpscaler() {
               beforeUrl={sourceUrl}
               afterUrl={resultUrl}
               beforeLabel="Original"
-              afterLabel={`Escalado ${scale}x`}
+              afterLabel={`Upscaled ${scale}x`}
             />
           </div>
           <p className="shrink-0 text-center text-xs text-[var(--text-muted)]">
-            Arrastrá el slider para comparar
+            Drag the slider to compare
           </p>
         </>
       )}
@@ -179,7 +179,7 @@ export function VideoUpscaler() {
               />
             </div>
             <p className="text-xs text-[var(--text-muted)] text-center">
-              Esto corre en tu GPU. No cierres la pestaña.
+              This runs on your GPU. Don't close this tab.
             </p>
           </div>
         </div>
@@ -203,7 +203,7 @@ export function VideoUpscaler() {
                   onClick={handleProcess}
                   className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
                 >
-                  Escalar {scale}x
+                  Scale {scale}x
                 </button>
               )}
               {status === "processing" && (
@@ -211,7 +211,7 @@ export function VideoUpscaler() {
                   onClick={handleReset}
                   className="px-6 py-2.5 border border-[var(--danger)] text-[var(--danger)] text-sm font-medium transition-colors hover:bg-[rgba(232,93,93,0.1)]"
                 >
-                  Cancelar
+                  Cancel
                 </button>
               )}
               {resultUrl && (
@@ -219,14 +219,14 @@ export function VideoUpscaler() {
                   onClick={handleDownload}
                   className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
-                  Descargar MP4
+                  Download MP4
                 </button>
               )}
               <button
                 onClick={handleReset}
                 className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
               >
-                Limpiar
+                Clear
               </button>
             </div>
           </div>

@@ -26,7 +26,7 @@ interface UseVideoUpscalerResult {
   reset: () => void;
 }
 
-// --- webcodecs-utils: tipos mínimos para los subpaths internos ---
+// --- webcodecs-utils: minimal types for internal subpaths ---
 interface SimpleDemuxer {
   load(): Promise<void>;
   getVideoDecoderConfig(): Promise<VideoDecoderConfig>;
@@ -72,14 +72,14 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
     moduleRef.current = mod;
 
     const gpu = await mod.initWebGPU();
-    if (!gpu) throw new Error("WebGPU no disponible");
+    if (!gpu) throw new Error("WebGPU is not available");
 
     if (!hiddenCanvasRef.current) hiddenCanvasRef.current = document.createElement("canvas");
     const canvas = hiddenCanvasRef.current;
 
     const network = getNetwork("real", true);
     const weightsRes = await fetch(network.weightUrl);
-    if (!weightsRes.ok) throw new Error("No se pudieron cargar los pesos del modelo");
+    if (!weightsRes.ok) throw new Error("Failed to load model weights");
     const weights = await weightsRes.json();
 
     const websr = new mod.default({ network_name: network.name, weights, gpu, canvas });
@@ -133,7 +133,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
         finalCanvas.width = finalW;
         finalCanvas.height = finalH;
         const ctx = finalCanvas.getContext("2d");
-        if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+        if (!ctx) throw new Error("Failed to get 2D context");
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(tempCanvas, 0, 0, finalW, finalH);
@@ -147,7 +147,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
   const upscale = useCallback(
     async (file: File, scale: ScaleFactor, algorithm: UpscaleAlgorithm, sharpen: number) => {
       if (!checkWebGPU()) {
-        setError("Tu navegador no soporta WebGPU. Probá con Chrome o Edge.");
+        setError("Your browser doesn't support WebGPU. Try Chrome or Edge.");
         setStatus("error");
         return;
       }
@@ -173,7 +173,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
         const finalCanvas = hiddenCanvasRef.current;
 
         // Import webcodecs-utils
-        // @ts-expect-error — subpaths internos sin tipos exportados
+        // @ts-expect-error — internal subpaths without exported types
         const { SimpleDemuxer } = await import("webcodecs-utils/dist/demux/simple-demuxer.js");
         // @ts-expect-error
         const { SimpleMuxer } = await import("webcodecs-utils/dist/mux/simple-muxer.js");
@@ -253,7 +253,7 @@ export function useVideoUpscaler(): UseVideoUpscalerResult {
         setStatus("done");
       } catch (err) {
         if (cancelledRef.current) return;
-        const msg = err instanceof Error ? err.message : "Error desconocido";
+        const msg = err instanceof Error ? err.message : "Unknown error";
         setError(msg);
         setStatus("error");
       }

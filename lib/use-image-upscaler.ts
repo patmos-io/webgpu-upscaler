@@ -63,12 +63,12 @@ export function useImageUpscaler({
     async (network: NetworkOption, canvas: HTMLCanvasElement): Promise<WebSRInstance> => {
       const mod = await loadModule();
       const gpu = await mod.initWebGPU();
-      if (!gpu) throw new Error("WebGPU no disponible en este navegador");
+      if (!gpu) throw new Error("WebGPU is not available in this browser");
 
       let weights = weightsCacheRef.current.get(network.weightUrl);
       if (!weights) {
         const weightsRes = await fetch(network.weightUrl);
-        if (!weightsRes.ok) throw new Error(`No se pudieron cargar los pesos: ${network.weightUrl}`);
+        if (!weightsRes.ok) throw new Error(`Failed to load model weights: ${network.weightUrl}`);
         weights = await weightsRes.json();
         weightsCacheRef.current.set(network.weightUrl, weights);
       }
@@ -107,7 +107,7 @@ export function useImageUpscaler({
       dstCanvas.width = dstW;
       dstCanvas.height = dstH;
       const ctx = dstCanvas.getContext("2d");
-      if (!ctx) throw new Error("No se pudo obtener contexto 2d para resize");
+      if (!ctx) throw new Error("Failed to get 2D context for resize");
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(srcCanvas, 0, 0, dstW, dstH);
@@ -140,11 +140,11 @@ export function useImageUpscaler({
       mode: ContentMode,
     ): Promise<{ bitmap: ImageBitmap; width: number; height: number }> => {
       const info = getScaleInfo(scale);
-      if (info.passes === 0) throw new Error("La escala debe ser mayor a 1x");
+      if (info.passes === 0) throw new Error("Scale must be greater than 1x");
 
       const network = getNetwork(mode, false);
       const canvas = canvasRef.current;
-      if (!canvas) throw new Error("Canvas no disponible");
+      if (!canvas) throw new Error("Canvas not available");
 
       const srcWidth = source.width;
       const srcHeight = source.height;
@@ -171,7 +171,7 @@ export function useImageUpscaler({
       let finalW = lastCanvas.width;
       let finalH = lastCanvas.height;
 
-      // Resize final si la escala no es potencia de 2
+      // Final resize if scale isn't a power of 2
       // Use a SEPARATE 2D canvas — never getContext('2d') on the WebGPU canvas
       if (info.needsResize) {
         finalW = Math.round(srcWidth * scale);
@@ -181,7 +181,7 @@ export function useImageUpscaler({
         resizeCanvas.width = finalW;
         resizeCanvas.height = finalH;
         const rctx = resizeCanvas.getContext("2d", { alpha: false });
-        if (!rctx) throw new Error("No se pudo obtener contexto 2d para resize");
+        if (!rctx) throw new Error("Failed to get 2D context for resize");
         rctx.imageSmoothingEnabled = true;
         rctx.imageSmoothingQuality = "high";
         rctx.drawImage(lastCanvas, 0, 0, finalW, finalH);
@@ -212,17 +212,17 @@ export function useImageUpscaler({
       setProcessTime(null);
 
       try {
-        if (scale <= 1) throw new Error("La escala debe ser mayor a 1x");
+        if (scale <= 1) throw new Error("Scale must be greater than 1x");
 
         const canvas = canvasRef.current;
-        if (!canvas) throw new Error("Canvas no disponible");
+        if (!canvas) throw new Error("Canvas not available");
 
         const startTime = performance.now();
         let finalBitmap: ImageBitmap;
         let finalW: number;
         let finalH: number;
 
-        // Convertir source a ImageBitmap si no lo es
+        // Convert source to ImageBitmap if it isn't already
         const bitmap =
           source instanceof ImageBitmap
             ? source
@@ -242,14 +242,14 @@ export function useImageUpscaler({
 
         const elapsed = performance.now() - startTime;
 
-        // Convertir a blob via a SEPARATE 2D canvas — never reuse the WebGPU canvas
+        // Convert to blob via a SEPARATE 2D canvas — never reuse the WebGPU canvas
         // because once a canvas has getContext('webgpu'), getContext('2d') returns null.
         if (!outputCanvasRef.current) outputCanvasRef.current = document.createElement("canvas");
         const outputCanvas = outputCanvasRef.current;
         outputCanvas.width = finalW;
         outputCanvas.height = finalH;
         const ctx = outputCanvas.getContext("2d", { alpha: false });
-        if (!ctx) throw new Error("No se pudo obtener contexto 2d");
+        if (!ctx) throw new Error("Failed to get 2D context");
         // Fill with white first — JPEGs should never produce transparent PNGs
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, finalW, finalH);
@@ -257,7 +257,7 @@ export function useImageUpscaler({
 
         const blob = await new Promise<Blob>((resolve, reject) => {
           outputCanvas.toBlob(
-            (b) => (b ? resolve(b) : reject(new Error("No se pudo generar la imagen"))),
+            (b) => (b ? resolve(b) : reject(new Error("Failed to generate image"))),
             "image/png",
           );
         });
@@ -272,7 +272,7 @@ export function useImageUpscaler({
         if (finalBitmap !== bitmap) finalBitmap.close();
         bitmap.close();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Error desconocido";
+        const msg = err instanceof Error ? err.message : "Unknown error";
         setError(msg);
         setStatus("error");
       }

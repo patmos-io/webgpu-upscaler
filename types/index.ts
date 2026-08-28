@@ -1,15 +1,15 @@
 export type ScaleFactor = number;
 
-/** Algoritmos de upscaling disponibles */
+/** Available upscaling algorithms */
 export type UpscaleAlgorithm = "ai" | "lanczos" | "bicubic" | "nearest";
 
 export type AlgorithmInfo = {
   id: UpscaleAlgorithm;
   label: string;
   description: string;
-  /** Cuán nítido vs suave es el resultado */
+  /** How sharp vs smooth the result is */
   sharpness: "pixel-perfect" | "sharp" | "natural" | "smooth";
-  /** Si usa AI/ML */
+  /** Whether it uses AI/ML */
   ai: boolean;
 };
 
@@ -18,7 +18,7 @@ export const ALGORITHMS: Record<UpscaleAlgorithm, AlgorithmInfo> = {
     id: "ai",
     label: "AI (Anime4K)",
     description:
-      "Red neural CNN que reconstruye detalles. Mejor para fotos y arte digital.",
+      "CNN neural network that reconstructs detail. Best for photos and digital art.",
     sharpness: "natural",
     ai: true,
   },
@@ -26,15 +26,15 @@ export const ALGORITHMS: Record<UpscaleAlgorithm, AlgorithmInfo> = {
     id: "lanczos",
     label: "Lanczos-3",
     description:
-      "Interpolación con ventana sinc de 6 taps. El más nítido sin AI. Ideal para preservar bordes.",
+      "Interpolation with a 6-tap sinc window. Sharpest non-AI option. Ideal for preserving edges.",
     sharpness: "sharp",
     ai: false,
   },
   bicubic: {
     id: "bicubic",
-    label: "Bicúbico",
+    label: "Bicubic",
     description:
-      "Interpolación Catmull-Rom de 4 taps. Balance entre nitidez y suavidad.",
+      "4-tap Catmull-Rom interpolation. Balanced between sharpness and smoothness.",
     sharpness: "natural",
     ai: false,
   },
@@ -42,7 +42,7 @@ export const ALGORITHMS: Record<UpscaleAlgorithm, AlgorithmInfo> = {
     id: "nearest",
     label: "Nearest",
     description:
-      "Sin interpolación. Píxeles exactos. Ideal para pixel art y pixel-perfect scaling.",
+      "No interpolation. Exact pixel replication. Ideal for pixel art and pixel-perfect scaling.",
     sharpness: "pixel-perfect",
     ai: false,
   },
@@ -51,11 +51,11 @@ export const ALGORITHMS: Record<UpscaleAlgorithm, AlgorithmInfo> = {
 export type QualityTier = "optimal" | "good" | "acceptable" | "extreme";
 
 export interface ScaleInfo {
-  /** Número de pasadas de 2x en cascada */
+  /** Number of cascaded 2x passes */
   passes: number;
-  /** Escala final de la AI (potencia de 2) */
+  /** Final AI scale (power of 2) */
   aiScale: number;
-  /** Si requiere resize final (escala no es potencia de 2) */
+  /** Whether a final resize is needed (scale isn't a power of 2) */
   needsResize: boolean;
   tier: QualityTier;
 }
@@ -97,7 +97,7 @@ export interface VideoProgress {
   percent: number;
 }
 
-// WebSR no exporta tipos oficiales — declaramos lo mínimo que usamos.
+// WebSR doesn't export official types — we declare the minimum we use.
 export interface WebSRInstance {
   render(
     source: ImageBitmap | HTMLVideoElement | HTMLImageElement | VideoFrame,

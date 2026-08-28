@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GPU Upscaler — Escalá imágenes y video gratis con tu GPU",
+  title: "WebGPU Upscaler — Scale images & video free with your GPU",
   description:
-    "Upscaling de imágenes y video en tiempo real usando WebGPU y tu GPU local. 100% gratis, 100% en tu navegador. Sin servidor, sin upload, sin límites.",
+    "Real-time image and video upscaling using WebGPU and your local GPU. 100% free, 100% in your browser. No server, no upload, no limits.",
   openGraph: {
-    title: "GPU Upscaler — Escalá gratis con tu GPU",
+    title: "WebGPU Upscaler — Scale free with your GPU",
     description:
-      "Upscaling AI de imágenes y video con WebGPU. Corre en tu navegador, usa tu GPU local. Sin servidor, sin costos.",
+      "AI image and video upscaling with WebGPU. Runs in your browser, uses your local GPU. No server, no costs.",
     type: "website",
   },
 };
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

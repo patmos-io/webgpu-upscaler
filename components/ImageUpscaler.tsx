@@ -73,14 +73,14 @@ export function ImageUpscaler() {
 
   return (
     <div className="flex flex-col gap-4 fade-in h-full min-h-0">
-      {/* Canvas oculto */}
+      {/* Hidden canvas */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* WebGPU warning */}
       {!webgpu && (
         <div className="shrink-0 border border-[var(--danger)] bg-[rgba(232,93,93,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
-          Tu navegador no soporta WebGPU. Usá Chrome 113+ o Edge 113+ para usar
-          esta herramienta.
+          Your browser doesn't support WebGPU. Use Chrome 113+ or Edge 113+ to use
+          this tool.
         </div>
       )}
 
@@ -112,10 +112,10 @@ export function ImageUpscaler() {
             </svg>
             <div>
               <p className="text-sm font-medium text-[var(--text)]">
-                Arrastrá una imagen o hacé clic para subir
+                Drag an image here or click to upload
               </p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                PNG, JPG, WebP — se procesa 100% en tu navegador
+                PNG, JPG, WebP — processed 100% in your browser
               </p>
             </div>
           </label>
@@ -124,15 +124,15 @@ export function ImageUpscaler() {
           <div className="shrink-0 grid grid-cols-3 gap-4 text-xs">
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">01</span>
-              <p className="text-[var(--text-muted)]">Subís una imagen. Nada sale de tu navegador.</p>
+              <p className="text-[var(--text-muted)]">Upload an image. Nothing leaves your browser.</p>
             </div>
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">02</span>
-              <p className="text-[var(--text-muted)]">Una red neural corre en tu GPU via WebGPU.</p>
+              <p className="text-[var(--text-muted)]">A neural network runs on your GPU via WebGPU.</p>
             </div>
             <div className="flex gap-2">
               <span className="font-mono text-[var(--accent)] shrink-0">03</span>
-              <p className="text-[var(--text-muted)]">Descargás el resultado. Sin límites, sin registro.</p>
+              <p className="text-[var(--text-muted)]">Download the result. No limits, no signup.</p>
             </div>
           </div>
         </div>
@@ -146,13 +146,13 @@ export function ImageUpscaler() {
               beforeUrl={sourceUrl}
               afterUrl={result.url}
               beforeLabel="Original"
-              afterLabel="Escalado"
+              afterLabel="Upscaled"
               beforeDims={sourceDims ?? undefined}
               afterDims={{ w: result.width, h: result.height }}
             />
           </div>
           <p className="shrink-0 text-center text-xs text-[var(--text-muted)]">
-            Arrastrá el slider para comparar
+            Drag the slider to compare
           </p>
         </>
       )}
@@ -162,7 +162,7 @@ export function ImageUpscaler() {
         <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
           <div className="flex items-center gap-3">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
-            <span className="text-sm text-[var(--text-muted)]">Procesando en tu GPU…</span>
+            <span className="text-sm text-[var(--text-muted)]">Processing on your GPU…</span>
           </div>
           <div className="h-1 w-48 overflow-hidden bg-[var(--surface-2)]">
             <div className="h-full w-1/3 animate-pulse bg-[var(--accent)]" />
@@ -190,7 +190,7 @@ export function ImageUpscaler() {
             {/* Left: mode (only for AI) */}
             {algorithm === "ai" && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--text-muted)]">Tipo:</span>
+                <span className="text-sm text-[var(--text-muted)]">Type:</span>
                 {(["real", "anime"] as ContentMode[]).map((m) => (
                   <button
                     key={m}
@@ -201,7 +201,7 @@ export function ImageUpscaler() {
                         : "bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]"
                     }`}
                   >
-                    {m === "real" ? "Foto" : "Anime"}
+                    {m === "real" ? "Photo" : "Anime"}
                   </button>
                 ))}
               </div>
@@ -214,7 +214,7 @@ export function ImageUpscaler() {
                   onClick={handleProcess}
                   className="px-6 py-2.5 bg-[var(--accent)] text-[var(--bg)] text-sm font-medium transition-colors hover:bg-[var(--accent-dim)]"
                 >
-                  Escalar {scale}x
+                  Scale {scale}x
                 </button>
               )}
               {result && (
@@ -222,14 +222,14 @@ export function ImageUpscaler() {
                   onClick={handleDownload}
                   className="px-6 py-2.5 border border-[var(--border)] text-[var(--text)] text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
-                  Descargar PNG
+                  Download PNG
                 </button>
               )}
               <button
                 onClick={handleReset}
                 className="px-4 py-2.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
               >
-                Limpiar
+                Clear
               </button>
             </div>
           </div>
