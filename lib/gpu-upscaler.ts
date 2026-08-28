@@ -556,6 +556,10 @@ async function canvas2DUpscale(
 // Public API — Video/canvas upscaling (render directly to canvas)
 // ============================================================
 
+// Canvases whose WebGPU context is already configured — reconfiguring or
+// resizing every frame tears down the swapchain and destroys throughput.
+const configuredCanvases = new WeakSet<HTMLCanvasElement>();
+
 /**
  * Upscales a video frame or image to a WebGPU canvas.
  * Renders directly to the canvas — no buffer readback, faster for video.
@@ -577,13 +581,18 @@ export async function gpuUpscaleToCanvas(
   const ctx = canvas.getContext("webgpu");
   if (!ctx) throw new Error("Failed to get WebGPU context from canvas");
   const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-  ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
 
   const { w: srcW, h: srcH } = getSourceDims(source);
   const dstW = Math.round(srcW * scale);
   const dstH = Math.round(srcH * scale);
-  canvas.width = dstW;
-  canvas.height = dstH;
+  if (canvas.width !== dstW || canvas.height !== dstH) {
+    canvas.width = dstW;
+    canvas.height = dstH;
+  }
+  if (!configuredCanvases.has(canvas)) {
+    ctx.configure({ device, format: canvasFormat, alphaMode: "opaque" });
+    configuredCanvases.add(canvas);
+  }
 
   // Source texture
   const srcTex = device.createTexture({
